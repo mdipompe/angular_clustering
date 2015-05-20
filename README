@@ -1,0 +1,4 @@
+These codes will calculate the angular autocorrelation function for a data set and random sample.  Can also split the sample into 16 equal area pixels and perform a jackknife error calculation, as well as fit the autocorrelation (using both the variance and the full covariance matrix).  Will also make plots.
+
+ang_cluster.pro can do everything all at once (by calling the other procedures), if the appropriate keywords are set.  Or, the codes can be run independently.  See the headers for more details.
+
