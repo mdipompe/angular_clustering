@@ -238,7 +238,7 @@ IF keyword_set(fitplaws) THEN BEGIN
    legendstring2='covar fixed '+textoidl('\delta=-1')
    legendstring3='mpfit full power-law'
    legendstring4='covar full power-law'
-   nice_plot,0.002,5.0,0.0005,10.,xtit=xtit,ytit=ytit,/log
+   nice_plot,0.002,5.0,0.0005,10.,xtit=xtit,ytit=ytit,/xlog,/ylog
    oplot,bin/60.,wtheta,psym=-8,color=cgcolor('blue')
    oploterror,bin/60.,wtheta,errors,psym=3,color=cgcolor('blue')
    oplot,x_fixed,y_fixed,linestyle=1
@@ -351,7 +351,7 @@ IF keyword_set(fitbias) THEN BEGIN
    xtit=textoidl('\theta (deg)')
    ytit=textoidl('\omega_{\theta}')
    temp=textoidl('\delta')
-   nice_plot,0.002,5.0,0.0005,10.,xtit=xtit,ytit=ytit,/log
+   nice_plot,0.002,5.0,0.0005,10.,xtit=xtit,ytit=ytit,/xlog,/ylog
    oplot,bin/60.,wtheta,psym=-8,color=cgcolor('blue')
    oploterror,bin/60.,wtheta,errors,psym=3,color=cgcolor('blue')
    oplot,dmbin[okfit]/60.,y,linestyle=1
