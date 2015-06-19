@@ -435,5 +435,5 @@ ENDIF
 et=systime(1)
 print,'Ang_cluster - Elapsed time= ',strtrim((et-st)/60,2),' min'
 
-stop
+return
 END
