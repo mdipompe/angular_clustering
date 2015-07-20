@@ -8,7 +8,7 @@
 ;
 ;  USE:
 ;    ang_jackknife,data,rand,theta_full,w_theta_full,errors $
-;                [,maxscale=maxscale,outfile='results_with_errs.txt',bins=bins]
+;                [,data2=data2,maxscale=maxscale,outfile='results_with_errs.txt',bins=bins]
 ;
 ;  INPUTS:
 ;    data - The real data structure, with the tags ra, dec, and
@@ -19,6 +19,8 @@
 ;    w_theta_full - the autocorrelation using the full sample          
 ;
 ;  OPTIONAL INPUTS:
+;    data2 - second data set for cross-correlation, with tags ra,dec,
+;            and reg.  (Made by split regions.pro)
 ;    maxscale - The maximum angular scale of interest, in degrees.  Should be
 ;               the same as what was used with ang_cluster.pro.  Defaults to 2
 ;    bins - options for binning include 3, 4 or 5 (refers to bins/dex)

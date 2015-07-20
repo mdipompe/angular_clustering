@@ -1,8 +1,5 @@
-PRO split_regions,data_in,rand_in,data_fileout,rand_fileout,figures=figures
-
+PRO split_regions,data_in,rand_in,data_fileout,rand_fileout,data2=data2,data2_fileout=data2_fileout,figures=figures
 ;-----------------------------------------------------------------------------
-;Written by MAD sometime in 2013, finalized 12/13
-;
 ;This procedure will split up a set of positional data and
 ;accompanying random catalog into 16 regions with equal numbers of
 ;random catalog points (and thus roughly equal area).  Will output new
@@ -22,11 +19,19 @@ PRO split_regions,data_in,rand_in,data_fileout,rand_fileout,figures=figures
 ;rand_fileout - the name of the file to output the new radnom structure with
 ;               ra, dec, and reg tags
 ;
+;OPTIONAL INPUTS
+;data2 - second data set if doing a cross-correlation
+;data2_fileout - filename for output of second data set
+;
 ;OPTIONAL KEYWORDS
 ;figures - set this flag to output PNG format figures showing all of
 ;          the data and random points color-coded by region
+;
+;HISTORY
+;   10-1-2012 - Written - MAD (UWyo)
+;   7-20-2015 - Added data2 for cross-correlation, removed unneeded loops - MAD (UWyo)
 ;-----------------------------------------------------------------------------
-IF (n_elements(rand_fileout) EQ 0) THEN message,'Syntax - split_regions,''data.fits'',''rand.fits'',''data_out.fits'',''rand_out.fits''[,/figures]'
+IF (n_elements(rand_fileout) EQ 0) THEN message,'Syntax - split_regions,''data.fits'',''rand.fits'',''data_out.fits'',''rand_out.fits''[,data2=data2,data2_fileout=''data2_out.fits'',/figures]'
 
 ;MAD Get start time
 st=systime(1)
@@ -45,6 +50,13 @@ dataregion={ra:0.,dec:0.,reg:0}
 dataregion=replicate(dataregion,n_elements(data))
 dataregion.ra=data.ra
 dataregion.dec=data.dec
+
+IF keyword_set(data2) THEN BEGIN
+   data2region={ra:0.,dec:0.,reg:0}
+   data2region=replicate(data2region,n_elements(data2))
+   data2region.ra=data2.ra
+   data2region.dec=data2.dec
+ENDIF
 
 print,'Split_regions - finding RA and DEC cuts...'
 ;MAD Determine first split in DEC
@@ -86,24 +98,38 @@ ra_split2_8=median(rand[xx].ra)
 
 ;MAD Assign region to each data point
 print,'Split_regions - Assigning region flags to each data point...'
-FOR i=0L,n_elements(data.ra)-1 DO BEGIN
- IF ((dataregion[i].ra LT ra_split2_1) AND (dataregion[i].dec GE dec_split2_1)) THEN dataregion[i].reg=1
- IF ((dataregion[i].ra GE ra_split2_1) AND (dataregion[i].ra LT ra_split1_1) AND (dataregion[i].dec GE dec_split2_1)) THEN dataregion[i].reg=2
- IF ((dataregion[i].ra GE ra_split1_1) AND (dataregion[i].ra LT ra_split2_5) AND (dataregion[i].dec GE dec_split2_2)) THEN dataregion[i].reg=3
- IF ((dataregion[i].ra GE ra_split2_5) AND (dataregion[i].dec GE dec_split2_2)) THEN dataregion[i].reg=4
- IF ((dataregion[i].ra LT ra_split2_2) AND (dataregion[i].dec GE dec_split1) AND (dataregion[i].dec LT dec_split2_1)) THEN dataregion[i].reg=5
- IF ((dataregion[i].ra GE ra_split2_2) AND (dataregion[i].ra LT ra_split1_1) AND (dataregion[i].dec GE dec_split1) AND (dataregion[i].dec LT dec_split2_1)) THEN dataregion[i].reg=6 
- IF ((dataregion[i].ra GE ra_split1_1) AND (dataregion[i].ra LT ra_split2_6) AND (dataregion[i].dec GE dec_split1) AND (dataregion[i].dec LT dec_split2_2)) THEN dataregion[i].reg=7 
- IF ((dataregion[i].ra GE ra_split2_6) AND (dataregion[i].dec GE dec_split1) AND (dataregion[i].dec LT dec_split2_2)) THEN dataregion[i].reg=8 
- IF ((dataregion[i].ra LT ra_split2_3) AND (dataregion[i].dec GE dec_split2_3) AND (dataregion[i].dec LT dec_split1)) THEN dataregion[i].reg=9  
- IF ((dataregion[i].ra GE ra_split2_3) AND (dataregion[i].ra LT ra_split1_2) AND (dataregion[i].dec GE dec_split2_3) AND (dataregion[i].dec LT dec_split1)) THEN dataregion[i].reg=10
- IF ((dataregion[i].ra GE ra_split1_2) AND (dataregion[i].ra LT ra_split2_7) AND (dataregion[i].dec GE dec_split2_4) AND (dataregion[i].dec LT dec_split1)) THEN dataregion[i].reg=11
- IF ((dataregion[i].ra GE ra_split2_7) AND (dataregion[i].dec GE dec_split2_4) AND (dataregion[i].dec LT dec_split1)) THEN dataregion[i].reg=12
- IF ((dataregion[i].ra LT ra_split2_4) AND (dataregion[i].dec LT dec_split2_3)) THEN dataregion[i].reg=13
- IF ((dataregion[i].ra GE ra_split2_4) AND (dataregion[i].ra LT ra_split1_2) AND (dataregion[i].dec LT dec_split2_3)) THEN dataregion[i].reg=14
- IF ((dataregion[i].ra GE ra_split1_2) AND (dataregion[i].ra LT ra_split2_8) AND (dataregion[i].dec LT dec_split2_4)) THEN dataregion[i].reg=15
- IF ((dataregion[i].ra GE ra_split2_8) AND (dataregion[i].dec LT dec_split2_4)) THEN dataregion[i].reg=16
-ENDFOR
+xx=where((dataregion.ra LT ra_split2_1) AND (dataregion.dec GE dec_split2_1),cnt)
+IF (cnt NE 0) THEN dataregion[xx].reg=1
+xx=where((dataregion.ra GE ra_split2_1) AND (dataregion.ra LT ra_split1_1) AND (dataregion.dec GE dec_split2_1),cnt)
+IF (cnt NE 0) THEN dataregion[xx].reg=2
+xx=where((dataregion.ra GE ra_split1_1) AND (dataregion.ra LT ra_split2_5) AND (dataregion.dec GE dec_split2_2),cnt)
+IF (cnt NE 0) THEN dataregion[xx].reg=3
+xx=where((dataregion.ra GE ra_split2_5) AND (dataregion.dec GE dec_split2_2),cnt)
+IF (cnt NE 0) THEN dataregion[xx].reg=4
+xx=where((dataregion.ra LT ra_split2_2) AND (dataregion.dec GE dec_split1) AND (dataregion.dec LT dec_split2_1),cnt)
+IF (cnt NE 0) THEN dataregion[xx].reg=5
+xx=where((dataregion.ra GE ra_split2_2) AND (dataregion.ra LT ra_split1_1) AND (dataregion.dec GE dec_split1) AND (dataregion.dec LT dec_split2_1),cnt)
+IF (cnt NE 0) THEN dataregion[xx].reg=6
+xx=where((dataregion.ra GE ra_split1_1) AND (dataregion.ra LT ra_split2_6) AND (dataregion.dec GE dec_split1) AND (dataregion.dec LT dec_split2_2),cnt)
+IF (cnt NE 0) THEN dataregion[xx].reg=7
+xx=where((dataregion.ra GE ra_split2_6) AND (dataregion.dec GE dec_split1) AND (dataregion.dec LT dec_split2_2),cnt)
+IF (cnt NE 0) THEN dataregion[xx].reg=8
+xx=where((dataregion.ra LT ra_split2_3) AND (dataregion.dec GE dec_split2_3) AND (dataregion.dec LT dec_split1),cnt)
+IF (cnt NE 0) THEN dataregion[xx].reg=9
+xx=where((dataregion.ra GE ra_split2_3) AND (dataregion.ra LT ra_split1_2) AND (dataregion.dec GE dec_split2_3) AND (dataregion.dec LT dec_split1),cnt)
+IF (cnt NE 0) THEN dataregion[xx].reg=10
+xx=where((dataregion.ra GE ra_split1_2) AND (dataregion.ra LT ra_split2_7) AND (dataregion.dec GE dec_split2_4) AND (dataregion.dec LT dec_split1),cnt)
+IF (cnt NE 0) THEN dataregion[xx].reg=11
+xx=where((dataregion.ra GE ra_split2_7) AND (dataregion.dec GE dec_split2_4) AND (dataregion.dec LT dec_split1),cnt)
+IF (cnt NE 0) THEN dataregion[xx].reg=12
+xx=where((dataregion.ra LT ra_split2_4) AND (dataregion.dec LT dec_split2_3),cnt)
+IF (cnt NE 0) THEN dataregion[xx].reg=13
+xx=where((dataregion.ra GE ra_split2_4) AND (dataregion.ra LT ra_split1_2) AND (dataregion.dec LT dec_split2_3),cnt)
+IF (cnt NE 0) THEN dataregion[xx].reg=14
+xx=where((dataregion.ra GE ra_split1_2) AND (dataregion.ra LT ra_split2_8) AND (dataregion.dec LT dec_split2_4),cnt)
+IF (cnt NE 0) THEN dataregion[xx].reg=15
+xx=where((dataregion.ra GE ra_split2_8) AND (dataregion.dec LT dec_split2_4),cnt)
+IF (cnt NE 0) THEN dataregion[xx].reg=16
 
 ;MAD Write out data file with region data
 mwrfits,dataregion,data_fileout,/create
@@ -111,45 +137,116 @@ mwrfits,dataregion,data_fileout,/create
 
 ;MAD Assign region to each random point
 print,'Split_regions - Assigning region flags to each random point...'
-FOR i=0L,n_elements(randregion.ra)-1 DO BEGIN
- IF ((randregion[i].ra LT ra_split2_1) AND (randregion[i].dec GE dec_split2_1)) THEN randregion[i].reg=1
- IF ((randregion[i].ra GE ra_split2_1) AND (randregion[i].ra LT ra_split1_1) AND (randregion[i].dec GE dec_split2_1)) THEN randregion[i].reg=2
- IF ((randregion[i].ra GE ra_split1_1) AND (randregion[i].ra LT ra_split2_5) AND (randregion[i].dec GE dec_split2_2)) THEN randregion[i].reg=3
- IF ((randregion[i].ra GE ra_split2_5) AND (randregion[i].dec GE dec_split2_2)) THEN randregion[i].reg=4
- IF ((randregion[i].ra LT ra_split2_2) AND (randregion[i].dec GE dec_split1) AND (randregion[i].dec LT dec_split2_1)) THEN randregion[i].reg=5
- IF ((randregion[i].ra GE ra_split2_2) AND (randregion[i].ra LT ra_split1_1) AND (randregion[i].dec GE dec_split1) AND (randregion[i].dec LT dec_split2_1)) THEN randregion[i].reg=6 
- IF ((randregion[i].ra GE ra_split1_1) AND (randregion[i].ra LT ra_split2_6) AND (randregion[i].dec GE dec_split1) AND (randregion[i].dec LT dec_split2_2)) THEN randregion[i].reg=7 
- IF ((randregion[i].ra GE ra_split2_6) AND (randregion[i].dec GE dec_split1) AND (randregion[i].dec LT dec_split2_2)) THEN randregion[i].reg=8 
- IF ((randregion[i].ra LT ra_split2_3) AND (randregion[i].dec GE dec_split2_3) AND (randregion[i].dec LT dec_split1)) THEN randregion[i].reg=9  
- IF ((randregion[i].ra GE ra_split2_3) AND (randregion[i].ra LT ra_split1_2) AND (randregion[i].dec GE dec_split2_3) AND (randregion[i].dec LT dec_split1)) THEN randregion[i].reg=10
- IF ((randregion[i].ra GE ra_split1_2) AND (randregion[i].ra LT ra_split2_7) AND (randregion[i].dec GE dec_split2_4) AND (randregion[i].dec LT dec_split1)) THEN randregion[i].reg=11
- IF ((randregion[i].ra GE ra_split2_7) AND (randregion[i].dec GE dec_split2_4) AND (randregion[i].dec LT dec_split1)) THEN randregion[i].reg=12
- IF ((randregion[i].ra LT ra_split2_4) AND (randregion[i].dec LT dec_split2_3)) THEN randregion[i].reg=13
- IF ((randregion[i].ra GE ra_split2_4) AND (randregion[i].ra LT ra_split1_2) AND (randregion[i].dec LT dec_split2_3)) THEN randregion[i].reg=14
- IF ((randregion[i].ra GE ra_split1_2) AND (randregion[i].ra LT ra_split2_8) AND (randregion[i].dec LT dec_split2_4)) THEN randregion[i].reg=15
- IF ((randregion[i].ra GE ra_split2_8) AND (randregion[i].dec LT dec_split2_4)) THEN randregion[i].reg=16
-ENDFOR
+xx=where((randregion.ra LT ra_split2_1) AND (randregion.dec GE dec_split2_1),cnt)
+IF (cnt NE 0) THEN randregion[xx].reg=1
+xx=where((randregion.ra GE ra_split2_1) AND (randregion.ra LT ra_split1_1) AND (randregion.dec GE dec_split2_1),cnt)
+IF (cnt NE 0) THEN randregion[xx].reg=2
+xx=where((randregion.ra GE ra_split1_1) AND (randregion.ra LT ra_split2_5) AND (randregion.dec GE dec_split2_2),cnt)
+IF (cnt NE 0) THEN randregion[xx].reg=3
+xx=where((randregion.ra GE ra_split2_5) AND (randregion.dec GE dec_split2_2),cnt)
+IF (cnt NE 0) THEN randregion[xx].reg=4
+xx=where((randregion.ra LT ra_split2_2) AND (randregion.dec GE dec_split1) AND (randregion.dec LT dec_split2_1),cnt)
+IF (cnt NE 0) THEN randregion[xx].reg=5
+xx=where((randregion.ra GE ra_split2_2) AND (randregion.ra LT ra_split1_1) AND (randregion.dec GE dec_split1) AND (randregion.dec LT dec_split2_1),cnt)
+IF (cnt NE 0) THEN randregion[xx].reg=6
+xx=where((randregion.ra GE ra_split1_1) AND (randregion.ra LT ra_split2_6) AND (randregion.dec GE dec_split1) AND (randregion.dec LT dec_split2_2),cnt)
+IF (cnt NE 0) THEN randregion[xx].reg=7
+xx=where((randregion.ra GE ra_split2_6) AND (randregion.dec GE dec_split1) AND (randregion.dec LT dec_split2_2),cnt)
+IF (cnt NE 0) THEN randregion[xx].reg=8
+xx=where((randregion.ra LT ra_split2_3) AND (randregion.dec GE dec_split2_3) AND (randregion.dec LT dec_split1),cnt)
+IF (cnt NE 0) THEN randregion[xx].reg=9
+xx=where((randregion.ra GE ra_split2_3) AND (randregion.ra LT ra_split1_2) AND (randregion.dec GE dec_split2_3) AND (randregion.dec LT dec_split1),cnt)
+IF (cnt NE 0) THEN randregion[xx].reg=10
+xx=where((randregion.ra GE ra_split1_2) AND (randregion.ra LT ra_split2_7) AND (randregion.dec GE dec_split2_4) AND (randregion.dec LT dec_split1),cnt)
+IF (cnt NE 0) THEN randregion[xx].reg=11
+xx=where((randregion.ra GE ra_split2_7) AND (randregion.dec GE dec_split2_4) AND (randregion.dec LT dec_split1),cnt)
+IF (cnt NE 0) THEN randregion[xx].reg=12
+xx=where((randregion.ra LT ra_split2_4) AND (randregion.dec LT dec_split2_3),cnt)
+IF (cnt NE 0) THEN randregion[xx].reg=13
+xx=where((randregion.ra GE ra_split2_4) AND (randregion.ra LT ra_split1_2) AND (randregion.dec LT dec_split2_3),cnt)
+IF (cnt NE 0) THEN randregion[xx].reg=14
+xx=where((randregion.ra GE ra_split1_2) AND (randregion.ra LT ra_split2_8) AND (randregion.dec LT dec_split2_4),cnt)
+IF (cnt NE 0) THEN randregion[xx].reg=15
+xx=where((randregion.ra GE ra_split2_8) AND (randregion.dec LT dec_split2_4),cnt)
+IF (cnt NE 0) THEN randregion[xx].reg=16
 
 ;MAD Write out random file with region info
 mwrfits,randregion,rand_fileout,/create
 
+
+
+;MAD Do second data set if doing cross-corr
+IF keyword_set(data2) THEN BEGIN
+   xx=where((data2region.ra LT ra_split2_1) AND (data2region.dec GE dec_split2_1),cnt)
+   IF (cnt NE 0) THEN data2region[xx].reg=1
+   xx=where((data2region.ra GE ra_split2_1) AND (data2region.ra LT ra_split1_1) AND (data2region.dec GE dec_split2_1),cnt)
+   IF (cnt NE 0) THEN data2region[xx].reg=2
+   xx=where((data2region.ra GE ra_split1_1) AND (data2region.ra LT ra_split2_5) AND (data2region.dec GE dec_split2_2),cnt)
+   IF (cnt NE 0) THEN data2region[xx].reg=3
+   xx=where((data2region.ra GE ra_split2_5) AND (data2region.dec GE dec_split2_2),cnt)
+   IF (cnt NE 0) THEN data2region[xx].reg=4
+   xx=where((data2region.ra LT ra_split2_2) AND (data2region.dec GE dec_split1) AND (data2region.dec LT dec_split2_1),cnt)
+   IF (cnt NE 0) THEN data2region[xx].reg=5
+   xx=where((data2region.ra GE ra_split2_2) AND (data2region.ra LT ra_split1_1) AND (data2region.dec GE dec_split1) AND (data2region.dec LT dec_split2_1),cnt)
+   IF (cnt NE 0) THEN data2region[xx].reg=6
+   xx=where((data2region.ra GE ra_split1_1) AND (data2region.ra LT ra_split2_6) AND (data2region.dec GE dec_split1) AND (data2region.dec LT dec_split2_2),cnt)
+   IF (cnt NE 0) THEN data2region[xx].reg=7
+   xx=where((data2region.ra GE ra_split2_6) AND (data2region.dec GE dec_split1) AND (data2region.dec LT dec_split2_2),cnt)
+   IF (cnt NE 0) THEN data2region[xx].reg=8
+   xx=where((data2region.ra LT ra_split2_3) AND (data2region.dec GE dec_split2_3) AND (data2region.dec LT dec_split1),cnt)
+   IF (cnt NE 0) THEN data2region[xx].reg=9
+   xx=where((data2region.ra GE ra_split2_3) AND (data2region.ra LT ra_split1_2) AND (data2region.dec GE dec_split2_3) AND (data2region.dec LT dec_split1),cnt)
+   IF (cnt NE 0) THEN data2region[xx].reg=10
+   xx=where((data2region.ra GE ra_split1_2) AND (data2region.ra LT ra_split2_7) AND (data2region.dec GE dec_split2_4) AND (data2region.dec LT dec_split1),cnt)
+   IF (cnt NE 0) THEN data2region[xx].reg=11
+   xx=where((data2region.ra GE ra_split2_7) AND (data2region.dec GE dec_split2_4) AND (data2region.dec LT dec_split1),cnt)
+   IF (cnt NE 0) THEN data2region[xx].reg=12
+   xx=where((data2region.ra LT ra_split2_4) AND (data2region.dec LT dec_split2_3),cnt)
+   IF (cnt NE 0) THEN data2region[xx].reg=13
+   xx=where((data2region.ra GE ra_split2_4) AND (data2region.ra LT ra_split1_2) AND (data2region.dec LT dec_split2_3),cnt)
+   IF (cnt NE 0) THEN data2region[xx].reg=14
+   xx=where((data2region.ra GE ra_split1_2) AND (data2region.ra LT ra_split2_8) AND (data2region.dec LT dec_split2_4),cnt)
+   IF (cnt NE 0) THEN data2region[xx].reg=15
+   xx=where((data2region.ra GE ra_split2_8) AND (data2region.dec LT dec_split2_4),cnt)
+   IF (cnt NE 0) THEN data2region[xx].reg=16
+
+   mwrfits,data2region,data2_fileout,/create
+ENDIF
+
+
+
+
+
+
+
+
 ;MAD Make figures if keyword is set
 IF (keyword_set(figures)) THEN BEGIN
- print,'Split_regions - making and writing out figures...'
- PS_start,filename='data_regions.png'
- nice_plot,min(randregion.ra)-5.,max(randregion.ra)+5.,min(randregion.dec)-5.,max(randregion.dec)+5.,xtit='RA (deg)',ytit='DEC (deg)'
- cols=['grey','blue','yellow','red','orchid','sienna','green','aquamarine','hot pink','cyan','olive','charcoal','maroon','khaki','orange','violet']
- FOR i=1L,max(dataregion.reg) DO BEGIN
-  oplot,data[WHERE(dataregion.reg EQ i)].ra,data[WHERE(dataregion.reg EQ i)].dec,psym=3,color=cgcolor(cols[i-1])
- ENDFOR
- PS_End,/png
+   print,'Split_regions - making and writing out figures...'
+   PS_start,filename='data_regions.png'
+   nice_plot,min(randregion.ra)-5.,max(randregion.ra)+5.,min(randregion.dec)-5.,max(randregion.dec)+5.,xtit='RA (deg)',ytit='DEC (deg)'
+   cols=['grey','blue','yellow','red','orchid','sienna','green','aquamarine','hot pink','cyan','olive','charcoal','maroon','khaki','orange','violet']
+   FOR i=1L,max(dataregion.reg) DO BEGIN
+      oplot,data[WHERE(dataregion.reg EQ i)].ra,data[WHERE(dataregion.reg EQ i)].dec,psym=3,color=cgcolor(cols[i-1])
+   ENDFOR
+   PS_End,/png
 
- PS_start,filename='rand_regions.png'
- nice_plot,min(randregion.ra)-5.,max(randregion.ra)+5.,min(randregion.dec)-5.,max(randregion.dec)+5.,xtit='RA (deg)',ytit='DEC (deg)'
- FOR i=1L,max(randregion.reg) DO BEGIN
-  oplot,randregion[WHERE(randregion.reg EQ i)].ra,randregion[WHERE(randregion.reg EQ i)].dec,psym=3,color=cgcolor(cols[i-1])
- ENDFOR
- PS_End,/png
+   PS_start,filename='rand_regions.png'
+   nice_plot,min(randregion.ra)-5.,max(randregion.ra)+5.,min(randregion.dec)-5.,max(randregion.dec)+5.,xtit='RA (deg)',ytit='DEC (deg)'
+   FOR i=1L,max(randregion.reg) DO BEGIN
+      oplot,randregion[WHERE(randregion.reg EQ i)].ra,randregion[WHERE(randregion.reg EQ i)].dec,psym=3,color=cgcolor(cols[i-1])
+   ENDFOR
+   PS_End,/png
+
+   IF keyword_set(data2) THEN BEGIN
+      PS_start,filename='data2_regions.png'
+      nice_plot,min(randregion.ra)-5.,max(randregion.ra)+5.,min(randregion.dec)-5.,max(randregion.dec)+5.,xtit='RA (deg)',ytit='DEC (deg)'
+      cols=['grey','blue','yellow','red','orchid','sienna','green','aquamarine','hot pink','cyan','olive','charcoal','maroon','khaki','orange','violet']
+      FOR i=1L,max(data2region.reg) DO BEGIN
+         oplot,data[WHERE(data2region.reg EQ i)].ra,data[WHERE(data2region.reg EQ i)].dec,psym=3,color=cgcolor(cols[i-1])
+      ENDFOR
+      PS_End,/png
+   ENDIF
 ENDIF
 
 ;MAD Get finish, elapsed time

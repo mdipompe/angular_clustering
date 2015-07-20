@@ -3,7 +3,7 @@
 ;    ang_cluster
 ;
 ;  PURPOSE:
-;    Calculate the angular autocorrelation function using the Landy &
+;    Calculate the angular auto/cross-correlation function using the Landy &
 ;    Szalay (1993) estimator.  Smallest possible bin edge is 0.94" (2e-4 deg).
 ;    Can also call several other procedures to jackknife errors, fit
 ;    power laws, fit bias, etc.
@@ -15,7 +15,7 @@
 ;    !!!!!!!!!!!!!!!!!
 ;
 ;  USE:
-;    ang_cluster,data,rand,theta,wtheta[,errs=errs,maxscale=maxscale, $
+;    ang_cluster,data,rand,theta,wtheta[,data2=data2,errs=errs,maxscale=maxscale, $
 ;                minscale=minscale,outfile=''outfile.txt'',bins=bins, $
 ;                /fitplaws,/jackknife,/fitbias,dmfile=''model_dm.txt'']
 ;
@@ -25,6 +25,7 @@
 ;           have tags ra and dec
 ;
 ;  OPTIONAL INPUT:
+;    data2 - Structure with second data set for cross-correlation
 ;    maxscale - the maximum scale of interest (in degrees).  Defaults to
 ;            2.
 ;    minscale - the minimum scale of interest (in degrees). Only
@@ -56,19 +57,23 @@
 ;             all!!
 ;    DD_DR.txt - same as above, for DD and DR counts.  Make sure to delete
 ;                if you change the data sample at all!
+;    DR2.txt - same as above for second data set if doing a cross correlation.
 ;    rr_reg.txt - If jackknife keyword is set, writes a file containing the number
 ;                 of RR counts in each bin and pixel.  Has n_rows=n_bins for clustering
 ;                 measurement, and n_columns=n_pix (currently only works
 ;                 for 16 pixels)
 ;    dd_reg.txt - same as above, for DD counts.
 ;    dr_reg.txt - same as above, for DR counts.
+;    dr2_reg.txt - same as above, for second set of DR counts, if
+;                  doing cross-correlation
 ;
 ;  HISTORY:
 ;    2013 - Written - MAD (UWyo) 
 ;    12-1-13 - First combined version - MAD (UWyo)
 ;    3-27-15 - Reworked and cleaned - MAD (UWyo)
+;    7-17-15 - Added data2 keyword for cross-correlations - MAD (UWyo)
 ;-
-PRO ang_cluster,data,rand,theta,w_theta,errs=errs,maxscale=maxscale,minscale=minscale,outfile=outfile,bins=bins, $
+PRO ang_cluster,data,rand,theta,w_theta,data2=data2,errs=errs,maxscale=maxscale,minscale=minscale,outfile=outfile,bins=bins, $
                 fitplaws=fitplaws,jackknife=jackknife,fitbias=fitbias,dmfile=dmfile
 
 IF (n_elements(data) EQ 0) THEN message,'Syntax - ang_cluster,data,rand,theta,w_theta[,errs=errs,maxscale=maxscale,minscale=minscale,outfile=''outfile.txt'',bins=bins,/fitplaws,/jackknife,/fitbias,dmfile=''model_dm.txt'']'
@@ -83,18 +88,24 @@ IF ~keyword_set(maxscale) THEN maxscale=2.
 ;MAD If jackknife keyword set (and they haven't been already), split data into 
 ;16 pixels for jackknife calculations
 IF (keyword_set(jackknife)) THEN BEGIN
- tagflag_data=tag_exist(data,'reg',/quiet)
- tagflag_rand=tag_exist(rand,'reg',/quiet)
- IF ((tagflag_data EQ 0) OR (tagflag_rand EQ 0)) THEN BEGIN
-  split_regions,data,rand,'data_reg.fits','rand_reg.fits',/figures
-  data=mrdfits('data_reg.fits',1)
-  rand=mrdfits('rand_reg.fits',1)
- ENDIF
+   tagflag_data=tag_exist(data,'reg',/quiet)
+   tagflag_rand=tag_exist(rand,'reg',/quiet)
+   IF keyword_set(data2) THEN tagflag_data2=tag_exist(data,'reg',/quiet)
+   IF ((tagflag_data EQ 0) OR (tagflag_rand EQ 0)) THEN BEGIN
+      split_regions,data,rand,'data_reg.fits','rand_reg.fits',/figures
+      data=mrdfits('data_reg.fits',1)
+      rand=mrdfits('rand_reg.fits',1)
+   ENDIF
+   IF (keyword_set(data2) AND tagflag_data2 EQ 0) THEN BEGIN
+      split_regions,data2,rand,'data2_reg.fits','rand_reg.fits'
+      data2=mrdfits('data2_reg.fits',1)
+   ENDIF
 ENDIF
 
 ;MAD Get number in each sample in double format
 n_data=double(n_elements(data))
 n_rand=double(n_elements(rand))
+IF keyword_set(data2) THEN n_data2=double(n_elements(data2))
 
 ;MAD Set binning (5dex is the default), make bin edges, centers
 IF ~keyword_set(bins) THEN bins=5
@@ -116,12 +127,13 @@ IF (keyword_set(jackknife)) THEN BEGIN
    rr_regions=dblarr(max(rand.reg),n_elements(bin_cent))
    dr_regions=dblarr(max(rand.reg),n_elements(bin_cent))
    dd_regions=dblarr(max(rand.reg),n_elements(bin_cent))
+   IF (keyword_set(data2)) THEN $
+      dr2_regions=dblarr(max(rand.reg),n_elements(bin_cent))
 ENDIF
 
 ;MAD Look for file of RR counts done previously
 rr_file=file_search('RR.txt')
 rr_reg_file=file_search('rr_reg.txt')
-
 
 ;MAD If RR counts haven't been done, do them
 ;MAD (This all looks very messy, but most is just careful bookkeeping
@@ -176,7 +188,8 @@ IF (rr_file EQ '') THEN BEGIN
             ENDFOR
          ENDIF
       ENDIF
-      print,'RR iteration done, random points ',strtrim(k,2),' - ',strtrim(k+step,2)
+      print,'RR iteration done, random points ',strtrim(k,2),' - ',strtrim(k+step,2), $
+            ' ('+strtrim((k+step)*(1./n_elements(rand))*100.,2)+'%)'
       k=k+step
       IF (k+10000 LT n_elements(rand)) THEN BEGIN
          step=10000
@@ -229,19 +242,21 @@ ENDIF
 d_file=file_search('DD_DR.txt')
 dd_reg_file=file_search('dd_reg.txt')
 dr_reg_file=file_search('dr_reg.txt')
-
 ;MAD If DD/DR counts haven't been done, do them
 IF (d_file EQ '') THEN BEGIN
    ;MAD Loop over chunks of data to find DD and DR
    print,'Ang_cluster - starting loop for DD/DR counts...'
    h_dd=0.D
    h_dr=0.D
+   IF keyword_set(data2) THEN h_dr2=0.D
    k=long(0)
    IF (n_elements(data) LT  10000.-1.) THEN step=n_elements(data)-1 ELSE step=10000.
    WHILE (k LT n_elements(data)) DO BEGIN
    ;Data-data counts
       tempdata=data[k:k+step-1]
-      spherematch,tempdata.ra,tempdata.dec,data.ra,data.dec,maxscale,m1_dd,m2_dd,sep_dd,maxmatch=0
+      IF ~keyword_set(data2) THEN $
+         spherematch,tempdata.ra,tempdata.dec,data.ra,data.dec,maxscale,m1_dd,m2_dd,sep_dd,maxmatch=0 ELSE $
+            spherematch,tempdata.ra,tempdata.dec,data2.ra,data2.dec,maxscale,m1_dd,m2_dd,sep_dd,maxmatch=0
       sep_dd=sep_dd*60.
       xx=where(sep_dd GE min(bin_edge))
       IF (xx[0] NE -1) THEN BEGIN
@@ -250,7 +265,8 @@ IF (d_file EQ '') THEN BEGIN
          m2_dd=m2_dd[xx]
          rebinned=value_locate(bin_edge,sep_dd)
          temp_dd=double(histogram(rebinned,binsize=1,min=0,max=n_elements(bin_edge)-1))
-         temp_dd=temp_dd*(1./(n_data*n_data))
+         IF ~keyword_set(data2) THEN temp_dd=temp_dd*(1./(n_data*n_data)) ELSE $
+            temp_dd=temp_dd*(1./(n_data*n_data2))
          h_dd=h_dd+temp_dd 
          ;If error keyword set, find pixel each pair member lives in
          IF (keyword_set(jackknife)) THEN BEGIN
@@ -322,7 +338,8 @@ IF (d_file EQ '') THEN BEGIN
             ENDFOR
          ENDIF
       ENDIF
-      print,'DD/DR iteration done, data points ',strtrim(k,2),' - ',strtrim(k+step,2) 
+      print,'DD/DR iteration done, data points ',strtrim(k,2),' - ',strtrim(k+step,2), $
+            ' ('+strtrim((k+step)*(1./n_elements(data))*100.,2)+'%)'
       k=k+step
       IF (k+10000 LT n_elements(data)) THEN BEGIN
          step=10000
@@ -342,8 +359,7 @@ IF (d_file EQ '') THEN BEGIN
          ENDELSE
       ENDELSE
    ENDWHILE
-
-   ;MAD Write out RR counts text file
+   ;MAD Write out DD counts text file
    openw,1,'DD_DR.txt'
    FOR i=0L,n_elements(h_dd)-1 DO BEGIN
       printf,1,h_dd[i],h_dr[i],format='(D,D)'
@@ -354,6 +370,93 @@ ENDIF ELSE BEGIN
    print,'Ang_cluster - reading in previous DD/DR counts...'
    readcol,d_file,h_dd,h_dr,format='D,D'
 ENDELSE
+
+;MAD Look for file of DR2 counts done previously (if doing cross-corr)
+IF keyword_set(data2) THEN BEGIN
+   d2_file=file_search('DR2.txt')
+   dr2_reg_file=file_search('dr2_reg.txt')
+   ;MAD If DR2 counts haven't been done, do them
+   IF (d2_file EQ '') THEN BEGIN
+      ;MAD Loop over chunks of data to find DR2
+      print,'Ang_cluster - starting loop for DR2 counts...'
+      h_dr2=0.D
+      k=long(0)
+      IF (n_elements(data2) LT  10000.-1.) THEN step=n_elements(data2)-1 ELSE step=10000.
+      WHILE (k LT n_elements(data2)) DO BEGIN
+      ;Data-random counts
+         tempdata=data2[k:k+step-1]
+         spherematch,tempdata.ra,tempdata.dec,rand.ra,rand.dec,maxscale,m1_dr2,m2_dr2,sep_dr2,maxmatch=0
+         sep_dr2=sep_dr2*60.
+         xx=where(sep_dr2 GE min(bin_edge))
+         IF (xx[0] NE -1) THEN BEGIN
+            sep_dr2=sep_dr2[xx]
+            m1_dr2=m1_dr2[xx]
+            m2_dr2=m2_dr2[xx]
+            rebinned=value_locate(bin_edge,sep_dr2)
+            temp_dr2=double(histogram(rebinned,binsize=1,min=0,max=n_elements(bin_edge)-1))
+            temp_dr2=temp_dr2*(1./(n_data2*n_rand))
+            h_dr2=h_dr2+temp_dr2
+            ;If error keyword set, find pixel each pair member lives in
+            IF (keyword_set(jackknife)) THEN BEGIN
+               FOR v=0L,n_elements(bin_edge)-1 DO BEGIN
+                  xx=where(rebinned EQ v)
+                  IF (xx[0] NE -1) THEN BEGIN
+                     tdata=[tempdata[m1_dr2[xx]].reg]
+                     trand=[rand[m2_dr2[xx]].reg]
+                     yy=where(tdata EQ trand)
+                     zz=where(tdata NE trand)
+                     IF ((zz[0] NE -1) AND (yy[0] NE -1)) THEN BEGIN
+                        h1=double(histogram(tdata[zz],binsize=1,min=1,max=max(data2.reg)))
+                        h2=double(histogram(trand[zz],binsize=1,min=1,max=max(data2.reg)))
+                        h3=double(histogram(tdata[yy],binsize=1,min=1,max=max(data2.reg)))
+                        dr2_regions[*,v]=dr2_regions[*,v]+h1+h2+h3
+                     ENDIF
+                     IF ((yy[0] NE -1) AND (zz[0] EQ -1)) THEN BEGIN
+                        h3=double(histogram(tdata[yy],binsize=1,min=1,max=max(rand.reg)))
+                        dr2_regions[*,v]=dr2_regions[*,v]+h3
+                     ENDIF
+                     IF ((zz[0] NE -1) AND (yy[0] EQ -1)) THEN BEGIN
+                        h1=double(histogram(tdata[zz],binsize=1,min=1,max=max(rand.reg)))
+                        h2=double(histogram(trand[zz],binsize=1,min=1,max=max(rand.reg)))
+                        dr2_regions[*,v]=dr2_regions[*,v]+h1+h2
+                     ENDIF
+                  ENDIF
+               ENDFOR
+            ENDIF
+         ENDIF
+         print,'DR2 iteration done, data points ',strtrim(k,2),' - ',strtrim(k+step,2) , $
+               ' ('+strtrim((k+step)*(1./n_elements(data2))*100.,2)+'%)'
+         k=k+step
+         IF (k+10000 LT n_elements(data2)) THEN BEGIN
+            step=10000
+         ENDIF ELSE BEGIN
+            IF (k+1000 LT n_elements(data2)) THEN BEGIN
+               step=1000
+            ENDIF ELSE BEGIN
+               IF (k+100 LT n_elements(data2)) THEN BEGIN
+                  step=100
+               ENDIF ELSE BEGIN
+                  IF (k+10 LT n_elements(data2)) THEN BEGIN
+                     step=10
+                  ENDIF ELSE BEGIN
+                     step=1
+                  ENDELSE
+               ENDELSE
+            ENDELSE
+         ENDELSE
+      ENDWHILE
+      ;MAD Write out DR2 counts text file
+      openw,1,'DR2.txt'
+      FOR i=0L,n_elements(h_dr2)-1 DO BEGIN
+         printf,1,h_dr2[i],format='(D)'
+      ENDFOR
+      close,1
+   ;MAD If DD/DR counts have already been done, read them in
+   ENDIF ELSE BEGIN
+      print,'Ang_cluster - reading in previous DR2 counts...'
+      readcol,d2_file,h_dr2,format='D'
+   ENDELSE
+ENDIF
 
 ;MAD If doing errors, then write out DD file for those
 IF (keyword_set(jackknife)) THEN BEGIN
@@ -380,11 +483,23 @@ IF (keyword_set(jackknife)) THEN BEGIN
       ENDFOR
       close,1
    ENDIF
+   IF (keyword_set(data2) AND dr2_reg_file EQ '') THEN BEGIN
+      openw,1,'dr2_reg.txt'
+      FOR w=0L,n_elements(bin_cent)-1 DO BEGIN
+         xx=where(finite(dr2_regions[*,w]) EQ 0,cnt)
+         IF (cnt NE 0) THEN dr2_regions[xx,w] = -9999
+         printf,1,dr2_regions[*,w],format='(E,1x,E,1x,E,1x,E,1x,E,1x,E,1x,E,1x,E,1x,E,1x,E,1x,E,1x,E,1x,E,1x,E,1x,E,1x,E)'
+      ENDFOR
+      close,1
+   ENDIF
 ENDIF
 
-print,'Ang_cluster - calculating autocorrelation, trimming bad data...'
-;MAD Calculate autocorrelation (Landy & Szalay 1993)
-w_theta=(1./h_rr)*(h_dd-(2.*h_dr)+h_rr)
+print,'Ang_cluster - calculating auto/cross-correlation, trimming bad data...'
+;MAD Calculate auto/cross-correlation (Landy & Szalay 1993)
+IF ~keyword_set(data2) THEN $
+   w_theta=(1./h_rr)*(h_dd-(2.*h_dr)+h_rr) ELSE $
+      w_theta=(1./h_rr)*(h_dd-h_dr-h_dr2+h_rr)
+theta=bin_cent
 
 ;If the scale of interest is larger than the maximum edge of
 ;the bins, the last value is nonsense
@@ -402,7 +517,7 @@ ENDIF
 
 ;MAD Print main results to file (if errors not being done)
 IF ~keyword_set(jackknife) THEN BEGIN
-   print,'Ang_cluster - writing out autocorrelation results...'
+   print,'Ang_cluster - writing out auto/cross-correlation results...'
    openw,1,outfile
    FOR i=0L,n_elements(w_theta)-1 DO BEGIN
       printf,1,theta[i],w_theta[i]
