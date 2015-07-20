@@ -1,4 +1,4 @@
-PRO split_regions,data_in,rand_in,data_fileout,rand_fileout,data2=data2,data2_fileout=data2_fileout,figures=figures
+PRO split_regions,data_in,rand_in,data_fileout,rand_fileout,data2_in=data2_in,data2_fileout=data2_fileout,figures=figures
 ;-----------------------------------------------------------------------------
 ;This procedure will split up a set of positional data and
 ;accompanying random catalog into 16 regions with equal numbers of
@@ -39,6 +39,7 @@ st=systime(1)
 ;MAD Set input data
 data=data_in
 rand=rand_in
+data2=data2_in
 
 ;MAD Make new structures with region flags
 randregion={ra:0., dec:0., reg:0}
