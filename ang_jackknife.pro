@@ -16,7 +16,7 @@
 ;    rand - The random structure, with the tags ra, dec,
 ;           and reg. (Made by split_regions.pro)
 ;    theta_full - the angular bin centers from the full measurement
-;    w_theta_full - the autocorrelation using the full sample          
+;    w_theta_full - the correlation funciton using the full sample          
 ;
 ;  OPTIONAL INPUTS:
 ;    data2 - second data set for cross-correlation, with tags ra,dec,
@@ -39,10 +39,11 @@
 ;    2013 - Written - MAD (UWyo) 
 ;    12-1-13 - First combined version - MAD (UWyo)
 ;    3-27-15 - Reworked and cleaned - MAD (UWyo)
+;    7-20-15 - Added cross-correlation capability - MAD (UWyo)
 ;-
-PRO ang_jackknife,data,rand,theta_full,w_theta_full,errors,maxscale=maxscale,outfile=outfile,bins=bins
+PRO ang_jackknife,data,rand,theta_full,w_theta_full,errors,data2=data2,maxscale=maxscale,outfile=outfile,bins=bins
 
-IF (n_elements(data) EQ 0) THEN message,'Syntax - ang_jackknife,data,rand,theta_full,w_theta_full,errors[,maxscale=maxscale,outfile=''results_with_errs.txt'',bins=bins]'
+IF (n_elements(data) EQ 0) THEN message,'Syntax - ang_jackknife,data,rand,theta_full,w_theta_full,errors[,data2=data2,maxscale=maxscale,outfile=''results_with_errs.txt'',bins=bins]'
 
 ;MAD Get the start time
 st=systime(1)
@@ -53,7 +54,7 @@ IF ~keyword_set(maxscale) THEN maxscale=2.
 ;MAD Set dataset sizes
 n_data_tot=double(n_elements(data))
 n_rand_tot=double(n_elements(rand))
-
+IF keyword_set(data2) THEN n_data2_tot=double(n_elements(data2))
 
 ;MAD Set binning (5dex is the default), make bin edges, centers
 IF ~keyword_set(bins) THEN bins=5
@@ -92,21 +93,29 @@ readcol,'dd_reg.txt',dd1,dd2,dd3,dd4,dd5,dd6,dd7,dd8,dd9,dd10,dd11,$
 readcol,'dr_reg.txt',dr1,dr2,dr3,dr4,dr5,dr6,dr7,dr8,dr9,dr10,dr11,$
                      dr12,dr13,dr14,dr15,dr16,format='D'
 
+IF keyword_set(data2) THEN BEGIN
+   readcol,'DR2.txt',dr2_tot,format='D'
+   readcol,'dr2_reg.txt',dr2_1,dr2_2,dr2_3,dr2_4,dr2_5,dr2_6,dr2_7,dr2_8,dr2_9,dr2_10,dr2_11,$
+                         dr2_12,dr2_13,dr2_14,dr2_15,dr2_16,format='D'
+ENDIF
+
 ;MAD Multiply original measurements by total to un-normalize the values
 dd_tot=dd_tot*n_data_tot*n_data_tot
 dr_tot=dr_tot*n_data_tot*n_rand_tot
-
+IF keyword_set(data2) THEN dr2_tot=dr2_tot*n_data2_tot*n_rand_tot
 
 ;MAD Start loop over included regions
 print,'Ang_jackknife - Looping over regions...'
 FOR i=1L,max(rand.reg) DO BEGIN
    use_data=data[where(data.reg NE i)]
    use_rand=rand[where(rand.reg NE i)]
-  
+   IF keyword_set(data2) THEN use_data2=data2[where(data2.reg NE i)]
+
    ;MAD Get number in each sample in double format
    n_data=double(n_elements(use_data))
    n_rand=double(n_elements(use_rand))
    n_rand_pix[i-1]=n_rand
+   IF keyword_set(data2) THEN n_data2=double(n_elements(use_data2))
 
    ;MAD Use info from ang_cluster.pro to do DD/DR/RR quickly 
    rr_use='rr'+strtrim(i,2)
@@ -124,9 +133,17 @@ FOR i=1L,max(rand.reg) DO BEGIN
    R=execute(cmd)
    h_dr=h_dr*(1./(n_data*n_rand))
 
+   IF keyword_set(data2) THEN BEGIN
+      dr2_use='dr2_'+strtrim(i,2)
+      cmd='h_dr2 = dr2_tot - '+dr2_use
+      R=execute(cmd)
+      h_dr2=h_dr2*(1./(n_data2*n_rand))
+   ENDIF
 
    ;MAD Calculate autocorrelation
-   w_theta=(1./h_rr)*(h_dd-(2.*h_dr)+h_rr)
+   IF ~keyword_set(data2) THEN $
+      w_theta=(1./h_rr)*(h_dd-(2.*h_dr)+h_rr) ELSE $
+         w_theta=(1./h_rr)*(h_dd-h_dr-h_dr2+h_rr)
 
    ;If the scale of interest is slightly larger than the maximum edge of
    ;the bins, the last value is nonsense

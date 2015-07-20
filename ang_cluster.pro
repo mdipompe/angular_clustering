@@ -534,7 +534,9 @@ ENDIF
 ;MAD Do jackknife error calculation
 IF (keyword_set(jackknife)) THEN BEGIN
    print,'Ang_cluster - calling ang_jackknife.pro to do errors...'
-   ang_jackknife,data,rand,theta,w_theta,errs,maxscale=maxscale,outfile=outfile,bins=bins
+   IF ~keyword_set(data2) THEN $
+      ang_jackknife,data,rand,theta,w_theta,errs,maxscale=maxscale,outfile=outfile,bins=bins ELSE $
+         ang_jackknife,data,rand,theta,w_theta,errs,data2=data2,maxscale=maxscale,outfile=outfile,bins=bins
 ENDIF
 
 ;MAD Fit the results
