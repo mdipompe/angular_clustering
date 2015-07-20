@@ -90,16 +90,20 @@ IF ~keyword_set(maxscale) THEN maxscale=2.
 IF (keyword_set(jackknife)) THEN BEGIN
    tagflag_data=tag_exist(data,'reg',/quiet)
    tagflag_rand=tag_exist(rand,'reg',/quiet)
-   IF keyword_set(data2) THEN tagflag_data2=tag_exist(data,'reg',/quiet)
-   IF ((tagflag_data EQ 0) OR (tagflag_rand EQ 0)) THEN BEGIN
-      split_regions,data,rand,'data_reg.fits','rand_reg.fits',/figures
+   IF keyword_set(data2) THEN BEGIN
+      tagflag_data2=tag_exist(data2,'reg',/quiet)
+      IF ((tagflag_data EQ 0) OR (tagflag_rand EQ 0) OR (tagflag_data2 EQ 0)) THEN BEGIN
+      split_regions,data,rand,'data_reg.fits','rand_reg.fits',data2=data2,data2_fileout='data2_reg.fits',/figures
       data=mrdfits('data_reg.fits',1)
       rand=mrdfits('rand_reg.fits',1)
-   ENDIF
-   IF (keyword_set(data2) AND tagflag_data2 EQ 0) THEN BEGIN
-      split_regions,data2,rand,'data2_reg.fits','rand_reg.fits'
       data2=mrdfits('data2_reg.fits',1)
-   ENDIF
+   ENDIF ELSE BEGIN
+      IF ((tagflag_data EQ 0) OR (tagflag_rand EQ 0)) THEN BEGIN
+         split_regions,data,rand,'data_reg.fits','rand_reg.fits',/figures
+         data=mrdfits('data_reg.fits',1)
+         rand=mrdfits('rand_reg.fits',1)
+      ENDIF
+   ENDELSE
 ENDIF
 
 ;MAD Get number in each sample in double format
