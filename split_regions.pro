@@ -39,7 +39,7 @@ st=systime(1)
 ;MAD Set input data
 data=data_in
 rand=rand_in
-data2=data2_in
+IF keyword_set(data2_in) THEN data2=data2_in
 
 ;MAD Make new structures with region flags
 randregion={ra:0., dec:0., reg:0}
