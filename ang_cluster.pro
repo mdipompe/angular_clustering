@@ -488,14 +488,16 @@ IF (keyword_set(jackknife)) THEN BEGIN
       ENDFOR
       close,1
    ENDIF
-   IF (keyword_set(data2) AND dr2_reg_file EQ '') THEN BEGIN
-      openw,1,'dr2_reg.txt'
-      FOR w=0L,n_elements(bin_cent)-1 DO BEGIN
-         xx=where(finite(dr2_regions[*,w]) EQ 0,cnt)
-         IF (cnt NE 0) THEN dr2_regions[xx,w] = -9999
-         printf,1,dr2_regions[*,w],format='(E,1x,E,1x,E,1x,E,1x,E,1x,E,1x,E,1x,E,1x,E,1x,E,1x,E,1x,E,1x,E,1x,E,1x,E,1x,E)'
-      ENDFOR
-      close,1
+   IF keyword_set(data2) THEN BEGIN
+      IF (dr2_reg_file EQ '') THEN BEGIN
+         openw,1,'dr2_reg.txt'
+         FOR w=0L,n_elements(bin_cent)-1 DO BEGIN
+            xx=where(finite(dr2_regions[*,w]) EQ 0,cnt)
+            IF (cnt NE 0) THEN dr2_regions[xx,w] = -9999
+            printf,1,dr2_regions[*,w],format='(E,1x,E,1x,E,1x,E,1x,E,1x,E,1x,E,1x,E,1x,E,1x,E,1x,E,1x,E,1x,E,1x,E,1x,E,1x,E)'
+         ENDFOR
+         close,1
+      ENDIF
    ENDIF
 ENDIF
 
