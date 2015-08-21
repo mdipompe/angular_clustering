@@ -30,7 +30,7 @@
 ;    plawplot - name of plot file for power law fits
 ;    biasplot - name of plot file for bias fits
 ;    dmfile - name of file with DM model autocorrelation. 
-;             Two columns, angular scale and w_theta
+;             Two columns, angular scale (in deg) and w_theta
 ;    filepath - path to location of files like, covariance file.
 ;               Defaults to current directory.
 ;
@@ -294,6 +294,7 @@ ENDIF
 IF keyword_set(fitbias) THEN BEGIN
    ;MAD read in model data
    readcol,dmfile,dmbin,dmw,format='F,D'
+   dmbin=dmbin*60.
    inscale=where((dmbin GT minscale*60.) AND (dmbin LT maxscale*60.))
    dmbin=dmbin[inscale]
    dmw=dmw[inscale]

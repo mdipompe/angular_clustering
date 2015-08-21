@@ -5,9 +5,10 @@
 ;    Generate a model projected angular autocorrelation of matter
 ;
 ;  USE:
-;    model_cross_corr,theta,mod_w,power_spec='power_spec.fits',dndz='dndz.txt',zarray='z_chi.txt',$
-;                      omega_m=omega_m,omega_l=omega_l,h0=h0,$
-;                      outfile='model_autocorr.txt'
+;    model_cross_corr,theta,mod_w,power_spec='power_spec.fits',dndz='dndz.txt',$
+;                      zarray=zarray,$
+;                      omega_m=omega_m,omega_l=omega_l,h0=h0,omega_b=omega_b,$
+;                      outfile='model_autocorr.txt',paramfile='params.ini'
 ;
 ;  INPUT:
 ;    theta - Array of angular scales you want the model at (degrees)
@@ -17,25 +18,29 @@
 ;                 containing the matter power
 ;                 spectrum.  Needs tags pk (the power spectrum), k
 ;                 (wavenumber), z (redshift).
-;                 Can be made from CAMB data using camb4idl and
-;                 combine_camb.pro. Defaults to 'power_spec_camb.fits'
+;                 Can be made from CAMB data using
+;                 matter_power_spec.pro/camb4idl.pro and
+;                 combine_camb.pro. If not set, will call necessary
+;                 procedures to make it.
 ;    dndz - string name of text file with dndz.  Will fit a spline
 ;           function and write it out to dndz_fit.txt.  You should
 ;           check this!!  Defaults to dndz.txt
-;    zsample - string name of file containing z and chi values, as
-;              made by chi_list.pro.  Defaults to z_chi.txt
+;    zarray - array of z values power spectrum and dndz are calculated
+;             for.  If not sets, defaults to 0.01 through 4.0 in steps
+;             of 0.01
 ;    omega_m - Omega_matter, defaults to 0.273.  Be sure it is
 ;              consistent with what you used when you calculated the
-;              power spectrum!
+;              power spectrum if you supply one!
 ;    omega_l - Omega_lambda, defaults to 0.727.  See above...
 ;    h0 - little h (H0/100), defaults to 0.702.  See above...
+;    omega_b - omega_baryon, defaults to 0.046
 ;    outfile - if supplied, writes model power out to text file
 ;    plotfile - if supplied, makes a plot of the model
 ;
 ;  KEYWORDS:
 ;    
 ;  OUTPUT:
-;    mod_w - the model autocorrelation
+;    mod_w - the model autocorrelation at each input theta
 ;    dndz_fit.txt - a file containing the normalized dndz fit as a check
 ;
 ;  NOTES:
@@ -45,9 +50,12 @@
 ;
 ;  HISTORY:
 ;    8-12-15 - Written - MAD (UWyo)
+;    8-21-15 - If power spec not supplied, calls CAMB4IDL to get it -
+;              MAD (UWyo)
 ;-
 PRO model_autocorr,theta,mod_w,power_spec=power_spec,dndz=dndz,$
-                   zsample=zsample,omega_m=omega_m,omega_l=omega_l,h0=h0,$
+                   zarray=zarray,paramfile=paramfile,$
+                   omega_m=omega_m,omega_l=omega_l,h0=h0,omega_b=omega_b,$
                    outfile=outfile,plotfile=plotfile
 
 ;MAD If output file already exists, don't run just read it in
@@ -59,27 +67,54 @@ IF (check NE '') THEN BEGIN
 ENDIF
 
 ;MAD Set constants/defaults
+IF ~keyword_set(paramfile) THEN paramfile='default_params.ini'
+IF ~keyword_set(zarray) THEN zarray=(findgen(400)/100.)+0.01
+IF ~keyword_set(dndz) THEN dndz='dndz.txt'
+
 c=2.99792458e5
 IF ~keyword_set(h0) THEN h0=0.702
-IF ~keyword_set(omega_m) THEN omega_m=0.273
-IF ~keyword_set(omega_l) THEN omega_l=0.727
+IF ~keyword_set(omega_m) THEN omega_m=0.275
+IF ~keyword_set(omega_l) THEN omega_l=0.725
+IF ~keyword_set(omega_b) THEN omega_b=0.046
 
-IF ~keyword_set(power_spec) THEN power_spec='power_spec_camb.fits'
-IF ~keyword_set(dndz) THEN dndz='dndz.txt'
-IF ~keyword_set(zsample) THEN zsample='z_chi.txt'
+;MAD Convert z array to comoving distance array
+chi=fltarr(n_elements(zarray))
+FOR i=0L,n_elements(zarray)-1 DO BEGIN
+   d=cosmocalc(zarray[i],h=h0,om=omega_m,lambda=omega_l)
+   chi[i]=d.d_c
+ENDFOR
 
+IF ~keyword_set(power_spec) THEN BEGIN
+   root='camb'
+   revz=reverse(zarray)
+   numloop=floor((n_elements(revz)/150))
+   IF (numloop NE 0) THEN BEGIN
+      numrem=(n_elements(revz) MOD 150)
+      FOR i=0L,numloop-1 DO BEGIN
+         indx=indgen(150)+(i*150)
+         matter_power_spec,paramfile,zarray[indx],h0=h0,omega_b=omega_b,$
+                           omega_dm=omega_m-omega_b,omega_l=omega_l,maxk=50
+      ENDFOR
+      IF (numrem NE 0) THEN BEGIN
+         matter_power_spec,paramfile,zarray[(n_elements(zarray)-numrem):n_elements(zarray)-1],$
+                           h0=h0,omega_b=omega_b,omega_dm=omega_m-omega_b,omega_l=omega_l,maxk=50
+      ENDIF
+   ENDIF ELSE BEGIN
+      matter_power_spec,paramfile,zarray,h0=h0,omega_b=omega_b,omega_dm=omega_m-omega_b,omega_l=omega_l,maxk=50
+   ENDELSE
+   combine_camb,'./',zarray,pspec,outfile='power_spec_camb.fits'
+ENDIF ELSE BEGIN
 ;MAD Read in power spectrum if given file name instead of structure
-check=size(power_spec)
-IF ((check[0] EQ 0) AND (check[1] EQ 7)) THEN $
-   pspec=mrdfits(power_spec,1) ELSE $
-      pspec=power_spec
+   check=size(power_spec)
+   IF ((check[0] EQ 0) AND (check[1] EQ 7)) THEN $
+      pspec=mrdfits(power_spec,1) ELSE $
+         pspec=power_spec
+ENDELSE
 
-;MAD Read in z, comoving distances 
-readcol,zsample,z,chi,format='D'
 
 ;MAD Fit dndz
 readcol,dndz,zdist,format='D'
-fit_dndz,zdist,z,dndz
+fit_dndz,zdist,zarray,dndz
 
 ;MAD convert to dimensionless power spectrum, put in factors of h
 delsq=pspec.pk*(1./(2.*!dpi^2.))*pspec.k^3.
@@ -95,7 +130,7 @@ thetarad=theta*(!dpi/180)
 fz=fltarr(n_elements(where(pkk EQ pkk[0])))
 
 ;MAD Set dz/d\chi array
-dzdchi=((h0*100.)/c)*(((omega_m*(1+z)^3.)+omega_l)^0.5)
+dzdchi=((h0*100.)/c)*(((omega_m*(1+zarray)^3.)+omega_l)^0.5)
 
 ;MAD Set output array
 mod_w=fltarr(n_elements(theta))
@@ -106,7 +141,7 @@ FOR i=0L,n_elements(thetarad)-1 DO BEGIN
    counter,i,n_elements(thetarad)
    FOR j=0L,n_elements(fz)-1 DO BEGIN
       ;MAD Get power spectrum at appropriate z
-      xx=where(round(pkz*100.)/100. EQ round(z[j]*100.)/100.)
+      xx=where(round(pkz*100.)/100. EQ round(zarray[j]*100.)/100.)
       ;MAD Interpolate on new grid of k, deltsq values for more accurate integral
       exponents=cgScaleVector(Findgen(10000),-5,max(alog10(kvals)))
       newk=10.^exponents
@@ -118,7 +153,7 @@ FOR i=0L,n_elements(thetarad)-1 DO BEGIN
       fz[j]=int_tabulated(newk,fk,/double)
    ENDFOR      
    ;MAD Integrate over z, multiply by pi
-   mod_w[i]=!dpi*int_tabulated(z,fz,/double)
+   mod_w[i]=!dpi*int_tabulated(zarray,fz,/double)
 ENDFOR
 
 IF keyword_set(plotfile) THEN BEGIN
@@ -138,6 +173,7 @@ IF keyword_set(outfile) THEN BEGIN
    close,1
 ENDIF
 
+return
 END
 
 
