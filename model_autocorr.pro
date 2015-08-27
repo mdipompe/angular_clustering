@@ -146,6 +146,9 @@ FOR i=0L,n_elements(thetarad)-1 DO BEGIN
       exponents=cgScaleVector(Findgen(10000),-5,max(alog10(kvals)))
       newk=10.^exponents
       newdelsq=interpol(delsq[xx],kvals,newk)
+      ;MAD Don't keep interpolated values that go negative
+      newk=newk[where(newdelsq GT 0)]
+      newdelsq=newdelsq[where(newdelsq GT 0)]
       ;MAD Define Bessel function at each k
       J0=beselj(newk*thetarad[i]*chi[j],0,/double)
       ;MAD Integrate over k, put into array for integration over z
