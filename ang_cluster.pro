@@ -25,7 +25,9 @@
 ;           have tags ra and dec
 ;
 ;  OPTIONAL INPUT:
-;    data2 - Structure with second data set for cross-correlation
+;    data2 - Structure with second data set for cross-correlation.
+;            Always assumed that randoms follow regular data, not
+;            data2, and DR values calculated as such.
 ;    maxscale - the maximum scale of interest (in degrees).  Defaults to
 ;            2.
 ;    minscale - the minimum scale of interest (in degrees). Only
@@ -64,14 +66,13 @@
 ;                 for 16 pixels)
 ;    dd_reg.txt - same as above, for DD counts.
 ;    dr_reg.txt - same as above, for DR counts.
-;    dr2_reg.txt - same as above, for second set of DR counts, if
-;                  doing cross-correlation
 ;
 ;  HISTORY:
 ;    2013 - Written - MAD (UWyo) 
 ;    12-1-13 - First combined version - MAD (UWyo)
 ;    3-27-15 - Reworked and cleaned - MAD (UWyo)
 ;    7-17-15 - Added data2 keyword for cross-correlations - MAD (UWyo)
+;    9-17-15 - Fixed some cross correlation bugs - MAD (Dartmouth)
 ;-
 PRO ang_cluster,data,rand,theta,w_theta,data2=data2,errs=errs,maxscale=maxscale,minscale=minscale,outfile=outfile,bins=bins, $
                 fitplaws=fitplaws,jackknife=jackknife,fitbias=fitbias,dmfile=dmfile

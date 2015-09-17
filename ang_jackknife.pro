@@ -40,6 +40,7 @@
 ;    12-1-13 - First combined version - MAD (UWyo)
 ;    3-27-15 - Reworked and cleaned - MAD (UWyo)
 ;    7-20-15 - Added cross-correlation capability - MAD (UWyo)
+;    9-17-15 - Fixed some cross-correlation bugs -MAD (Dartmouth)
 ;-
 PRO ang_jackknife,data,rand,theta_full,w_theta_full,errors,data2=data2,maxscale=maxscale,outfile=outfile,bins=bins
 

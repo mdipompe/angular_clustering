@@ -29,7 +29,9 @@ PRO split_regions,data_in,rand_in,data_fileout,rand_fileout,data2_in=data2_in,da
 ;
 ;HISTORY
 ;   10-1-2012 - Written - MAD (UWyo)
-;   7-20-2015 - Added data2 for cross-correlation, removed unneeded loops - MAD (UWyo)
+;   7-20-2015 - Added data2 for cross-correlation, removed unneeded
+;               loops - MAD (UWyo)
+;   9-17-2015 - Fixed bug for plotting second data set - MAD (Dartmouth)  
 ;-----------------------------------------------------------------------------
 IF (n_elements(rand_fileout) EQ 0) THEN message,'Syntax - split_regions,''data.fits'',''rand.fits'',''data_out.fits'',''rand_out.fits''[,data2=data2,data2_fileout=''data2_out.fits'',/figures]'
 
