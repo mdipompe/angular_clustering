@@ -74,11 +74,11 @@ ENDIF
 ;MAD Open file to write jackknife results
 openw,1,'jackknife_results.txt'
 
-;MAD Read in RR data from ang_cluster.pro
+;MAD Read in RR data from ang_cluster.pro 
 print,'Ang_jackknife - Reading counts/region files...'
 readcol,'RR.txt',rr_tot,format='D'
 readcol,'rr_reg.txt',rr1,rr2,rr3,rr4,rr5,rr6,rr7,rr8,rr9,rr10,rr11,$
-                     rr12,rr13,rr14,rr15,rr16,format='D'
+        rr12,rr13,rr14,rr15,rr16,format='D'
 ;MAD Multiply original measurements by total to un-normalize the values
 rr_tot=rr_tot*n_rand_tot*n_rand_tot
 
@@ -93,16 +93,11 @@ readcol,'dd_reg.txt',dd1,dd2,dd3,dd4,dd5,dd6,dd7,dd8,dd9,dd10,dd11,$
 readcol,'dr_reg.txt',dr1,dr2,dr3,dr4,dr5,dr6,dr7,dr8,dr9,dr10,dr11,$
                      dr12,dr13,dr14,dr15,dr16,format='D'
 
-IF keyword_set(data2) THEN BEGIN
-   readcol,'DR2.txt',dr2_tot,format='D'
-   readcol,'dr2_reg.txt',dr2_1,dr2_2,dr2_3,dr2_4,dr2_5,dr2_6,dr2_7,dr2_8,dr2_9,dr2_10,dr2_11,$
-                         dr2_12,dr2_13,dr2_14,dr2_15,dr2_16,format='D'
-ENDIF
-
 ;MAD Multiply original measurements by total to un-normalize the values
-dd_tot=dd_tot*n_data_tot*n_data_tot
+IF ~keyword_set(data2) THEN dd_tot=dd_tot*n_data_tot*n_data_tot ELSE $
+   dd_tot=dd_tot*n_data_tot*n_data2_tot   
 dr_tot=dr_tot*n_data_tot*n_rand_tot
-IF keyword_set(data2) THEN dr2_tot=dr2_tot*n_data2_tot*n_rand_tot
+
 
 ;MAD Start loop over included regions
 print,'Ang_jackknife - Looping over regions...'
@@ -122,28 +117,22 @@ FOR i=1L,max(rand.reg) DO BEGIN
    cmd='h_rr = rr_tot - '+rr_use
    R=execute(cmd)
    h_rr=h_rr*(1./(n_rand*n_rand))
-
+   
    dd_use='dd'+strtrim(i,2)
    cmd='h_dd = dd_tot - '+dd_use
    R=execute(cmd)
-   h_dd=h_dd*(1./(n_data*n_data))
+   IF ~keyword_set(data2) THEN h_dd=h_dd*(1./(n_data*n_data)) ELSE $
+      h_dd=h_dd*(1./(n_data*n_data2))
 
    dr_use='dr'+strtrim(i,2)
    cmd='h_dr = dr_tot - '+dr_use
    R=execute(cmd)
    h_dr=h_dr*(1./(n_data*n_rand))
 
-   IF keyword_set(data2) THEN BEGIN
-      dr2_use='dr2_'+strtrim(i,2)
-      cmd='h_dr2 = dr2_tot - '+dr2_use
-      R=execute(cmd)
-      h_dr2=h_dr2*(1./(n_data2*n_rand))
-   ENDIF
-
    ;MAD Calculate autocorrelation
    IF ~keyword_set(data2) THEN $
       w_theta=(1./h_rr)*(h_dd-(2.*h_dr)+h_rr) ELSE $
-         w_theta=(1./h_rr)*(h_dd-h_dr-h_dr2+h_rr)
+         w_theta=(h_dd/h_dr)-1.
 
    ;If the scale of interest is slightly larger than the maximum edge of
    ;the bins, the last value is nonsense
@@ -173,7 +162,7 @@ readcol,'jackknife_results.txt',theta_pix,w_theta_pix,pix,format='D,D,F'
 
 num=n_elements(theta_full)
 readcol,'rr_reg.txt',rr1,rr2,rr3,rr4,rr5,rr6,rr7,rr8,rr9,rr10,rr11,$
-                     rr12,rr13,rr14,rr15,rr16,format='D',numline=num
+        rr12,rr13,rr14,rr15,rr16,format='D',numline=num
 readcol,'RR.txt',rr_tot,format='D',numline=num
 rr_tot_norm=rr_tot
 rr_tot=rr_tot*n_rand_tot*n_rand_tot
@@ -184,7 +173,6 @@ FOR k=1,max(pix) DO BEGIN
    string='rr_pix = rr'+strtrim(k,2)
    R=Execute(string)
    rr_pix=rr_tot-rr_pix
-   rr_pix_norm=rr_pix*(1./n_rand_pix[k-1])*(1./n_rand_pix[k-1])
    w_theta=w_theta_pix[where(pix EQ k)]
    temp1=(SQRT(rr_pix*(1./rr_tot)))*(w_theta-w_theta_full)
    temp2=(SQRT(rr_pix*(1./rr_tot)))*(w_theta-w_theta_full)

@@ -244,7 +244,7 @@ IF (keyword_set(figures)) THEN BEGIN
       nice_plot,min(randregion.ra)-5.,max(randregion.ra)+5.,min(randregion.dec)-5.,max(randregion.dec)+5.,xtit='RA (deg)',ytit='DEC (deg)'
       cols=['grey','blue','yellow','red','orchid','sienna','green','aquamarine','hot pink','cyan','olive','charcoal','maroon','khaki','orange','violet']
       FOR i=1L,max(data2region.reg) DO BEGIN
-         oplot,data[WHERE(data2region.reg EQ i)].ra,data[WHERE(data2region.reg EQ i)].dec,psym=3,color=cgcolor(cols[i-1])
+         oplot,data2[WHERE(data2region.reg EQ i)].ra,data2[WHERE(data2region.reg EQ i)].dec,psym=3,color=cgcolor(cols[i-1])
       ENDFOR
       PS_End,/png
    ENDIF
