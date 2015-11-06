@@ -339,7 +339,7 @@ IF keyword_set(fitbias) THEN BEGIN
    best_b=b_guess[minchi]
    y=dmw[okfit]*(best_b[0]^2.)
 
-   minchi2=minchi
+   minchi2=chisq[minchi]
    
    ;MAD find errors on best bias, using delta chi^2 = 1
    chi1=chisq[0:minchi]-min(chisq)
