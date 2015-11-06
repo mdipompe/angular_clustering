@@ -38,12 +38,16 @@
 ;    bias 
 ;    biaserr
 ;
+;  OPTIONAL OUTPUT:
+;    minchi2 - minimum chi squared of best fit bias
+;
 ;  HISTORY:
 ;    2013 - Written - MAD (UWyo) 
 ;    12-1-13 - First combined version - MAD (UWyo)
 ;    3-27-15 - Reworked and cleaned - MAD (UWyo)
+;    11-5-15 - Included min chi^2 as output - MAD (Dartmouth) 
 ;-
-PRO fit_ang_cluster,theta,w_theta,errors,bias,biaserr,minscale=minscale,maxscale=maxscale,fitplaws=fitplaws,fitbias=fitbias,dmfile=dmfile,plawplot=plawplot,biasplot=biasplot,filepath=filepath
+PRO fit_ang_cluster,theta,w_theta,errors,bias,biaserr,minscale=minscale,maxscale=maxscale,fitplaws=fitplaws,fitbias=fitbias,dmfile=dmfile,plawplot=plawplot,biasplot=biasplot,filepath=filepath,minchi2=minchi2
 
 IF (n_elements(theta) EQ 0) THEN message,'Syntax - fit_ang_cluster,theta,w_theta,errors[,minscale=minscale,maxscale=maxscale,/fitplaws,/fitbias,plawplot=''plawplot.png'',biasplot=''biasplot.png'']'
 
@@ -335,6 +339,8 @@ IF keyword_set(fitbias) THEN BEGIN
    best_b=b_guess[minchi]
    y=dmw[okfit]*(best_b[0]^2.)
 
+   minchi2=minchi
+   
    ;MAD find errors on best bias, using delta chi^2 = 1
    chi1=chisq[0:minchi]-min(chisq)
    chi2=chisq[minchi:n_elements(chisq)-1]-min(chisq)
@@ -368,6 +374,7 @@ IF keyword_set(fitbias) THEN BEGIN
    IF (fitflag EQ 1) THEN print,'***SOME POINTS WERE LEFT OUT OF FIT DUE TO NEGATIVE W_THETA IN JACKKNIFE***'
    IF (fitflag EQ 1) THEN print,'***************************************************************************'
 
+   print,'Bias fit has chi^2 of ',strtrim(minchi,2)
    print,'Bias fit errors are based on a delta chi^2 of ',strtrim(dchi_b,2)
    print,' '
    print,'Fits using covariance ('+strtrim(minscale,2)+' - '+strtrim(maxscale,2)+' degrees):'
