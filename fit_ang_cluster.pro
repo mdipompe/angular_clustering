@@ -374,7 +374,7 @@ IF keyword_set(fitbias) THEN BEGIN
    IF (fitflag EQ 1) THEN print,'***SOME POINTS WERE LEFT OUT OF FIT DUE TO NEGATIVE W_THETA IN JACKKNIFE***'
    IF (fitflag EQ 1) THEN print,'***************************************************************************'
 
-   print,'Bias fit has chi^2 of ',strtrim(minchi,2)
+   print,'Bias fit has chi^2 of ',strtrim(minchi2,2)
    print,'Bias fit errors are based on a delta chi^2 of ',strtrim(dchi_b,2)
    print,' '
    print,'Fits using covariance ('+strtrim(minscale,2)+' - '+strtrim(maxscale,2)+' degrees):'
