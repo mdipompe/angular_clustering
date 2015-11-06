@@ -36,6 +36,7 @@
 ;    omega_b - omega_baryon, defaults to 0.046
 ;    outfile - if supplied, writes model power out to text file
 ;    plotfile - if supplied, makes a plot of the model
+;    bz - coefficients of b(z) model, of the form b(z) = bz[0] + bz[1](1+z)^2
 ;
 ;  KEYWORDS:
 ;    
@@ -52,11 +53,13 @@
 ;    8-12-15 - Written - MAD (UWyo)
 ;    8-21-15 - If power spec not supplied, calls CAMB4IDL to get it -
 ;              MAD (UWyo)
+;    11-6-15 - Added b(z) functionality - MAD (Dartmouth)
 ;-
 PRO model_autocorr,theta,mod_w,power_spec=power_spec,dndz=dndz,$
                    zarray=zarray,paramfile=paramfile,$
                    omega_m=omega_m,omega_l=omega_l,h0=h0,omega_b=omega_b,$
-                   outfile=outfile,plotfile=plotfile
+                   outfile=outfile,plotfile=plotfile,$
+                   bz=bz
 
 ;MAD If output file already exists, don't run just read it in
 IF ~keyword_set(outfile) THEN check='' ELSE check=file_search(outfile)
@@ -156,7 +159,8 @@ FOR i=0L,n_elements(thetarad)-1 DO BEGIN
       fz[j]=int_tabulated(newk,fk,/double)
    ENDFOR      
    ;MAD Integrate over z, multiply by pi
-   mod_w[i]=!dpi*int_tabulated(zarray,fz,/double)
+   IF ~keyword_set(bz) THEN mod_w[i]=!dpi*int_tabulated(zarray,fz,/double) ELSE $
+      mod_w[i]=!dpi*int_tabulated(zarray,fz*(bz[0] + bz[1]*(1+zarray)^2),/double)
 ENDFOR
 
 IF keyword_set(plotfile) THEN BEGIN

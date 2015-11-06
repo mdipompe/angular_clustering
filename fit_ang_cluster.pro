@@ -22,7 +22,11 @@
 ;
 ;  KEYWORDS:
 ;    fitplaws - set to fit power laws (free slope, fixed slope)
-;    fitbias - set to fit model bias (need to set dmfile to model file)
+;    fitbias - set to fit model bias (need to set dmfile to model
+;              file)
+;    bz - if set, assumes you've supplied a model that includes
+;         a b(z), and just want to renormalize it (instead of fitting
+;         b^2). In this case, output is b_0, normalization of b(z) model.
 ;
 ;  OPTIONAL INPUTS:
 ;    minscale - set lower limit for fitting range (default 0.0027 deg)
@@ -46,8 +50,13 @@
 ;    12-1-13 - First combined version - MAD (UWyo)
 ;    3-27-15 - Reworked and cleaned - MAD (UWyo)
 ;    11-5-15 - Included min chi^2 as output - MAD (Dartmouth) 
+;    11-6-15 - Added b(z) option - MAD (Dartmouth)
 ;-
-PRO fit_ang_cluster,theta,w_theta,errors,bias,biaserr,minscale=minscale,maxscale=maxscale,fitplaws=fitplaws,fitbias=fitbias,dmfile=dmfile,plawplot=plawplot,biasplot=biasplot,filepath=filepath,minchi2=minchi2
+PRO fit_ang_cluster,theta,w_theta,errors,bias,biaserr,$
+                    minscale=minscale,maxscale=maxscale,$
+                    fitplaws=fitplaws,fitbias=fitbias,dmfile=dmfile,$
+                    plawplot=plawplot,biasplot=biasplot,filepath=filepath,$
+                    minchi2=minchi2,bz=bz
 
 IF (n_elements(theta) EQ 0) THEN message,'Syntax - fit_ang_cluster,theta,w_theta,errors[,minscale=minscale,maxscale=maxscale,/fitplaws,/fitbias,plawplot=''plawplot.png'',biasplot=''biasplot.png'']'
 
@@ -324,7 +333,8 @@ IF keyword_set(fitbias) THEN BEGIN
    ;MAD Loop over bias values to get chi-sq using covariance...
    print,'fit_bias - Building bias chi^2 array...'
    FOR i=0L,n_elements(b_guess)-1 DO BEGIN
-      val=dmw[okfit]*(b_guess[i]^2.)
+      IF ~keyword_set(bz) THEN val=dmw[okfit]*(b_guess[i]^2.) ELSE $
+         val=dmw[okfit]*(b_guess[i])
       temp=(wtheta[okfit]-val) # C_inv_use # (wtheta[okfit]-val)
       chisq[i]=chisq[i]+temp
    ENDFOR
@@ -374,13 +384,21 @@ IF keyword_set(fitbias) THEN BEGIN
    IF (fitflag EQ 1) THEN print,'***SOME POINTS WERE LEFT OUT OF FIT DUE TO NEGATIVE W_THETA IN JACKKNIFE***'
    IF (fitflag EQ 1) THEN print,'***************************************************************************'
 
-   print,'Bias fit has chi^2 of ',strtrim(minchi2,2)
-   print,'Bias fit errors are based on a delta chi^2 of ',strtrim(dchi_b,2)
-   print,' '
-   print,'Fits using covariance ('+strtrim(minscale,2)+' - '+strtrim(maxscale,2)+' degrees):'
-   print,'Bias = ',strtrim(best_b[0],2),' +/- ',strtrim(b_err,2)
-   print,' '
-
+   IF ~keyword_set(bz) THEN BEGIN
+      print,'Bias fit has chi^2 of ',strtrim(minchi2,2)
+      print,'Bias fit errors are based on a delta chi^2 of ',strtrim(dchi_b,2)
+      print,' '
+      print,'Fits using covariance ('+strtrim(minscale,2)+' - '+strtrim(maxscale,2)+' degrees):'
+      print,'Bias = ',strtrim(best_b[0],2),' +/- ',strtrim(b_err,2)
+      print,' '
+   ENDIF ELSE BEGIN
+      print,'B_0 fit has chi^2 of ',strtrim(minchi2,2)
+      print,'B_0 fit errors are based on a delta chi^2 of ',strtrim(dchi_b,2)
+      print,' '
+      print,'Fits using covariance ('+strtrim(minscale,2)+' - '+strtrim(maxscale,2)+' degrees):'
+      print,'B_0 = ',strtrim(best_b[0],2),' +/- ',strtrim(b_err,2)
+      print,' '
+   ENDELSE
    ;MAD If chi^2 minimization went all the way to the edge of the input
    ;grids, give a warning
    IF ((best_b[0] EQ min(b_guess)) OR (best_b[0] EQ max(b_guess))) THEN $
