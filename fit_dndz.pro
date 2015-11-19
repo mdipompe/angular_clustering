@@ -21,6 +21,8 @@
 ;
 ;  HISTORY:
 ;    11-7-14 - Written - MAD (UWyo)
+;    11-18-15 - Fixed accuracy bug in dndz normalization for small
+;               bins - MAD (Dartmouth)
 ;-
 PRO fit_dndz,realz,sampledz,dndz,binsize=binsize
 
@@ -51,10 +53,7 @@ h=[0,h]
 ;MAD Fit cubic spline, normalize
 fit=spline(x,h,sampledz)
 fit[where((sampledz GT max(realz)) OR (sampledz LT min(realz)))]=0
-area=0.
-FOR i=0L,n_elements(sampledz)-1 DO BEGIN
- area=area+(fit[i]*(sampledz[1]-sampledz[0]))
-ENDFOR
+area=int_tabulated(sampledz,fit,/double)
 dndz=fit/area
 
 openw,1,'dndz_fit.txt'
