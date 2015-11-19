@@ -22,9 +22,12 @@
 ;                 matter_power_spec.pro/camb4idl.pro and
 ;                 combine_camb.pro. If not set, will call necessary
 ;                 procedures to make it.
-;    dndz - string name of text file with dndz.  Will fit a spline
-;           function and write it out to dndz_fit.txt.  You should
-;           check this!!  Defaults to dndz.txt
+;    dndz - either a string name of file with your real z values,
+;           which will be fit with a spline function and written out
+;           to dndz_fit.txt, or an array of dndz values that
+;           correspond to zarray values (can generate with
+;           fit_dndz.pro). If not set, defaults to look for file
+;           called dndz.txt with real z values.
 ;    zarray - array of z values power spectrum and dndz are calculated
 ;             for.  If not sets, defaults to 0.01 through 4.0 in steps
 ;             of 0.01
@@ -42,18 +45,19 @@
 ;    
 ;  OUTPUT:
 ;    mod_w - the model autocorrelation at each input theta
-;    dndz_fit.txt - a file containing the normalized dndz fit as a check
 ;
 ;  NOTES:
 ;    Make sure your cosmology agrees with how you calculated the power
 ;    spectrum, if you supply your own. Also check the dndz_fit.txt file to make sure nothing
-;    went wrong!
+;    went wrong if you don't supply your own fit!
 ;
 ;  HISTORY:
 ;    8-12-15 - Written - MAD (UWyo)
 ;    8-21-15 - If power spec not supplied, calls CAMB4IDL to get it -
 ;              MAD (UWyo)
 ;    11-6-15 - Added b(z) functionality - MAD (Dartmouth)
+;   11-19-15 - Added option to supply own dndz rather than auto
+;              calling fit_dndz.txt (more flexible) - MAD (Dartmouth)
 ;-
 PRO model_autocorr,theta,mod_w,power_spec=power_spec,dndz=dndz,$
                    zarray=zarray,paramfile=paramfile,$
@@ -115,10 +119,17 @@ ENDIF ELSE BEGIN
 ENDELSE
 
 
-;MAD Fit dndz
-readcol,dndz,zdist,format='D'
-fit_dndz,zdist,zarray,dndz
+;MAD Fit dndz if needed
+IF (size(dndz,/type) EQ 7) THEN BEGIN
+   readcol,dndz,zdist,format='D'
+   fit_dndz,zdist,zarray,dndz
+ENDIF ELSE BEGIN
+   IF (n_elements(zarray) NE n_elements(dndz)) THEN $
+      message,'Length of dndz and zarray don''t match!'
+ENDELSE
 
+
+   
 ;MAD convert to dimensionless power spectrum, put in factors of h
 delsq=pspec.pk*(1./(2.*!dpi^2.))*pspec.k^3.
 pkk=pspec.k*h0
