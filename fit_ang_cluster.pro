@@ -313,7 +313,7 @@ IF keyword_set(fitbias) THEN BEGIN
    dmw=dmw[inscale]
 
    ;MAD Generate array of bias values
-   b_guess=(findgen(500000.)*(5./500000.)+1.)
+   b_guess=(findgen(500000.)*(5./500000.)+0.4)
    ;MAD Initialize arrays of Chi^2 values to fill; invert covariance matrix
    chisq=dblarr(n_elements(b_guess))
    C_inv=invert(C,/double)
