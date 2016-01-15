@@ -10,7 +10,7 @@ FUNCTION powerlaw_fixedslope,x,p
 
 A=p[0]
 B=-1.
-ymod=A*x^(B)
+ymod=A*(x^(B))
 
 return,ymod
 

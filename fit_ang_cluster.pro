@@ -71,7 +71,7 @@ IF ~keyword_set(maxscale) THEN maxscale=2.
 IF ~keyword_set(filepath) THEN filepath='./'
 
 ;MAD Define filled circle for plot
-circsym
+circsym,/fill
 
 ;MAD Read in covariance matrix
 print,'fit_ang_cluster - reading in covariance matrix...'
