@@ -5,7 +5,7 @@
 ;    Generate a model projected angular autocorrelation of matter
 ;
 ;  USE:
-;    model_cross_corr,theta,mod_w,power_spec='power_spec.fits',dndz='dndz.txt',$
+;    model_autocorr,theta,mod_w,power_spec='power_spec.fits',dndz='dndz.txt',$
 ;                      zarray=zarray,$
 ;                      omega_m=omega_m,omega_l=omega_l,h0=h0,omega_b=omega_b,$
 ;                      outfile='model_autocorr.txt',paramfile='params.ini'
