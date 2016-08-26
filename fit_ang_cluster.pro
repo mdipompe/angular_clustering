@@ -320,15 +320,15 @@ IF keyword_set(fitbias) THEN BEGIN
    C_inv_use=C_inv[*,okfit]
    C_inv_use=C_inv_use[okfit,*]
 
-   ;;MAD Loop over bias values to get chi-sq using just variance...
-   ;print,'fit_bias - Building bias chi^2 array...'
-   ;FOR i=0L,n_elements(b_guess)-1 DO BEGIN
-   ; FOR k=0L,n_elements(bin[okfit])-1 DO BEGIN
-   ;  val=dmw[okfit[k]]*(b_guess[i]^2.)
-   ;  temp=(wtheta[okfit[k]]-val) * C_inv_use[k,k] * (wtheta[okfit[k]]-val)
-   ;  chisq[i]=chisq[i]+temp
-   ; ENDFOR
-   ;ENDFOR
+   ;MAD Loop over bias values to get chi-sq using just variance...
+;   print,'fit_bias - Building bias chi^2 array...'
+;   FOR i=0L,n_elements(b_guess)-1 DO BEGIN
+;    FOR k=0L,n_elements(bin[okfit])-1 DO BEGIN
+;     val=dmw[okfit[k]]*(b_guess[i]^2.)
+;     temp=(wtheta[okfit[k]]-val) * C_inv_use[k,k] * (wtheta[okfit[k]]-val)
+;     chisq[i]=chisq[i]+temp
+;    ENDFOR
+;   ENDFOR
 
    ;MAD Loop over bias values to get chi-sq using covariance...
    print,'fit_bias - Building bias chi^2 array...'
