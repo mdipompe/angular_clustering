@@ -25,7 +25,7 @@
 ;           have tags ra and dec
 ;
 ;  OPTIONAL INPUT:
-;    data2 - Structure with second data set for cross-correlation.
+;    data2_in - Structure with second data set for cross-correlation.
 ;            Always assumed that randoms follow regular data, not
 ;            data2, and DR values calculated as such.
 ;    maxscale - the maximum scale of interest (in degrees).  Defaults to
@@ -38,12 +38,14 @@
 ;           default is 5.  Can also set to 0 to make two large bins.
 ;    dmfile - must be set if /bias is set.  String name of file with
 ;             DM model, two columns: scale, w_theta)
+;    n - number of pixels per side to use if jackknifing errors
+;        (default = 4).  Max is currently 9 due to IDL file format issues.
 ;
 ;  KEYWORDS:
 ;    fitplaws - Set to fit powerlaws (2 parameter and fixed slope=-1) to
 ;          result
-;    jackknife - set to break up data into 16 regions with equal
-;                numbers, and measure the clustering neglecting one
+;    jackknife - set to break up data into regions with equal
+;                areas, and measure the clustering neglecting one
 ;                region at a time to estimate errors
 ;    fitbias - set to fit a DM model to the data (requires dmcluster to
 ;           be set)
@@ -73,11 +75,14 @@
 ;    3-27-15 - Reworked and cleaned - MAD (UWyo)
 ;    7-17-15 - Added data2 keyword for cross-correlations - MAD (UWyo)
 ;    9-17-15 - Fixed some cross correlation bugs - MAD (Dartmouth)
+;     9-5-16 - Generalized to arbitrary number or jackknife pixels -
+;              MAD (Dartmouth)
 ;-
-PRO ang_cluster,data,rand,theta,w_theta,data2=data2,errs=errs,maxscale=maxscale,minscale=minscale,outfile=outfile,bins=bins, $
-                fitplaws=fitplaws,jackknife=jackknife,fitbias=fitbias,dmfile=dmfile
+PRO ang_cluster,data_in,rand_in,theta,w_theta,data2_in=data2_in,$
+                errs=errs,maxscale=maxscale,minscale=minscale,outfile=outfile,bins=bins, $
+                fitplaws=fitplaws,jackknife=jackknife,n=n,fitbias=fitbias,dmfile=dmfile
 
-IF (n_elements(data) EQ 0) THEN message,'Syntax - ang_cluster,data,rand,theta,w_theta[,errs=errs,maxscale=maxscale,minscale=minscale,outfile=''outfile.txt'',bins=bins,/fitplaws,/jackknife,/fitbias,dmfile=''model_dm.txt'']'
+IF (n_elements(data_in) EQ 0) THEN message,'Syntax - ang_cluster,data,rand,theta,w_theta[,errs=errs,maxscale=maxscale,minscale=minscale,outfile=''outfile.txt'',bins=bins,/fitplaws,/jackknife,n=n,/fitbias,dmfile=''model_dm.txt'']'
 
 ;MAD Get start time
 st=systime(1)
@@ -86,25 +91,33 @@ st=systime(1)
 IF ~keyword_set(minscale) THEN minscale=0.0027
 IF ~keyword_set(maxscale) THEN maxscale=2.
 
+;MAD Set default number of pixels per side if doing jackknife errors
+IF (~keyword_set(n) AND keyword_set(jackkinfe)) THEN n=4
+
 ;MAD If jackknife keyword set (and they haven't been already), split data into 
 ;16 pixels for jackknife calculations
 IF (keyword_set(jackknife)) THEN BEGIN
-   tagflag_data=tag_exist(data,'reg',/quiet)
-   tagflag_rand=tag_exist(rand,'reg',/quiet)
-   IF keyword_set(data2) THEN BEGIN
-      tagflag_data2=tag_exist(data2,'reg',/quiet)
+   tagflag_data=tag_exist(data_in,'reg',/quiet)
+   tagflag_rand=tag_exist(rand_in,'reg',/quiet)
+   IF keyword_set(data2_in) THEN BEGIN
+      tagflag_data2=tag_exist(data2_in,'reg',/quiet)
       IF ((tagflag_data EQ 0) OR (tagflag_rand EQ 0) OR (tagflag_data2 EQ 0)) THEN BEGIN
-         split_regions,data,rand,'data_reg.fits','rand_reg.fits',data2_in=data2,data2_fileout='data2_reg.fits',/figures
+         split_regions_gen,data_in,rand_in,data,rand,n=n, frac=0.5, $
+                           data_fileout='data_reg.fits',rand_fileout='rand_reg.fits', $
+                           data2_in=data2_in,data2_fileout='data2_reg.fits',/figures
+      ENDIF ELSE BEGIN
          data=mrdfits('data_reg.fits',1)
          rand=mrdfits('rand_reg.fits',1)
          data2=mrdfits('data2_reg.fits',1)
-      ENDIF
+      ENDELSE
    ENDIF ELSE BEGIN
       IF ((tagflag_data EQ 0) OR (tagflag_rand EQ 0)) THEN BEGIN
-         split_regions,data,rand,'data_reg.fits','rand_reg.fits',/figures
+         split_regions_gen,data_in,rand_in,data,rand, n=n, frac=0.5, $
+                           data_fileout='data_reg.fits',rand_fileout='rand_reg.fits',/figures
+      ENDIF ELSE BEGIN
          data=mrdfits('data_reg.fits',1)
          rand=mrdfits('rand_reg.fits',1)
-      ENDIF
+      ENDELSE
    ENDELSE
 ENDIF
 
@@ -237,7 +250,12 @@ IF (~keyword_set(data2) OR keyword_set(jackknife)) THEN BEGIN
          FOR w=0L,n_elements(bin_cent)-1 DO BEGIN
             xx=where(finite(rr_regions[*,w]) EQ 0,cnt)
             IF (cnt NE 0) THEN rr_regions[xx,w] = -9999
-            printf,1,rr_regions[*,w],format='(E,1x,E,1x,E,1x,E,1x,E,1x,E,1x,E,1x,E,1x,E,1x,E,1x,E,1x,E,1x,E,1x,E,1x,E,1x,E)'
+            fmtstring='('
+            FOR l=0L,max(rand.reg)-2 DO BEGIN
+               fmtstring=fmtstring+'E,1x,'
+            ENDFOR
+            fmtstring=fmtstring+'E)'
+            printf,1,rr_regions[*,w],format=fmtstring
          ENDFOR
          close,1
       ENDIF
@@ -383,7 +401,12 @@ IF (keyword_set(jackknife)) THEN BEGIN
       FOR w=0L,n_elements(bin_cent)-1 DO BEGIN
          xx=where(finite(dd_regions[*,w]) EQ 0,cnt)
          IF (cnt NE 0) THEN dd_regions[xx,w] = -9999
-         printf,1,dd_regions[*,w],format='(E,1x,E,1x,E,1x,E,1x,E,1x,E,1x,E,1x,E,1x,E,1x,E,1x,E,1x,E,1x,E,1x,E,1x,E,1x,E)'
+         fmtstring='('
+         FOR l=0L,max(rand.reg)-2 DO BEGIN
+            fmtstring=fmtstring+'E,1x,'
+         ENDFOR
+         fmtstring=fmtstring+'E)'
+         printf,1,dd_regions[*,w],format=fmtstring
       ENDFOR
       close,1
    ENDIF
@@ -397,7 +420,12 @@ IF (keyword_set(jackknife)) THEN BEGIN
       FOR w=0L,n_elements(bin_cent)-1 DO BEGIN
          xx=where(finite(dr_regions[*,w]) EQ 0,cnt)
          IF (cnt NE 0) THEN dr_regions[xx,w] = -9999
-         printf,1,dr_regions[*,w],format='(E,1x,E,1x,E,1x,E,1x,E,1x,E,1x,E,1x,E,1x,E,1x,E,1x,E,1x,E,1x,E,1x,E,1x,E,1x,E)'
+         fmtstring='('
+         FOR l=0L,max(rand.reg)-2 DO BEGIN
+            fmtstring=fmtstring+'E,1x,'
+         ENDFOR
+         fmtstring=fmtstring+'E)'
+         printf,1,dr_regions[*,w],format=fmtstring
       ENDFOR
       close,1
    ENDIF

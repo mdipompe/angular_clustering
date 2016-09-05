@@ -40,9 +40,12 @@
 ;    12-1-13 - First combined version - MAD (UWyo)
 ;    3-27-15 - Reworked and cleaned - MAD (UWyo)
 ;    7-20-15 - Added cross-correlation capability - MAD (UWyo)
-;    9-17-15 - Fixed some cross-correlation bugs -MAD (Dartmouth)
+;    9-17-15 - Fixed some cross-correlation bugs - MAD (Dartmouth)
+;     9-5-16 - Generalized to arbitrary number of jackknife pixels -
+;              MAD (Dartmouth)
 ;-
-PRO ang_jackknife,data,rand,theta_full,w_theta_full,errors,data2=data2,maxscale=maxscale,outfile=outfile,bins=bins
+PRO ang_jackknife,data,rand,theta_full,w_theta_full,errors,data2=data2,$
+                  maxscale=maxscale,outfile=outfile,bins=bins
 
 IF (n_elements(data) EQ 0) THEN message,'Syntax - ang_jackknife,data,rand,theta_full,w_theta_full,errors[,data2=data2,maxscale=maxscale,outfile=''results_with_errs.txt'',bins=bins]'
 
@@ -78,8 +81,12 @@ openw,1,'jackknife_results.txt'
 ;MAD Read in RR data from ang_cluster.pro 
 print,'Ang_jackknife - Reading counts/region files...'
 readcol,'RR.txt',rr_tot,format='D'
-readcol,'rr_reg.txt',rr1,rr2,rr3,rr4,rr5,rr6,rr7,rr8,rr9,rr10,rr11,$
-        rr12,rr13,rr14,rr15,rr16,format='D'
+rr_reg=read_matrix('rr_reg.txt')
+FOR i=0L,n_elements(rr_reg[*,0])-1 DO BEGIN
+   cmd='rr'+strtrim(i+1,2)+'=reform(rr_reg[i,*])'
+   tmp=execute(cmd)
+ENDFOR
+
 ;MAD Multiply original measurements by total to un-normalize the values
 rr_tot=rr_tot*n_rand_tot*n_rand_tot
 
@@ -89,10 +96,16 @@ n_rand_pix=dblarr(max(rand.reg))
 
 ;MAD Read in DD/DR data from ang_cluster.pro
 readcol,'DD_DR.txt',dd_tot,dr_tot,format='D,D'
-readcol,'dd_reg.txt',dd1,dd2,dd3,dd4,dd5,dd6,dd7,dd8,dd9,dd10,dd11,$
-                     dd12,dd13,dd14,dd15,dd16,format='D'
-readcol,'dr_reg.txt',dr1,dr2,dr3,dr4,dr5,dr6,dr7,dr8,dr9,dr10,dr11,$
-                     dr12,dr13,dr14,dr15,dr16,format='D'
+dd_reg=read_matrix('dd_reg.txt')
+FOR i=0L,n_elements(dd_reg[*,0])-1 DO BEGIN
+   cmd='dd'+strtrim(i+1,2)+'=reform(dd_reg[i,*])'
+   tmp=execute(cmd)
+ENDFOR
+dr_reg=read_matrix('dr_reg.txt')
+FOR i=0L,n_elements(dr_reg[*,0])-1 DO BEGIN
+   cmd='dr'+strtrim(i+1,2)+'=reform(dr_reg[i,*])'
+   tmp=execute(cmd)
+ENDFOR
 
 ;MAD Multiply original measurements by total to un-normalize the values
 IF ~keyword_set(data2) THEN dd_tot=dd_tot*n_data_tot*n_data_tot ELSE $
@@ -162,8 +175,12 @@ print,'Ang_jackknife - calculating covariance matrix...'
 readcol,'jackknife_results.txt',theta_pix,w_theta_pix,pix,format='D,D,F'
 
 num=n_elements(theta_full)
-readcol,'rr_reg.txt',rr1,rr2,rr3,rr4,rr5,rr6,rr7,rr8,rr9,rr10,rr11,$
-        rr12,rr13,rr14,rr15,rr16,format='D',numline=num
+rr_reg=read_matrix('rr_reg.txt')
+rr_reg=rr_reg[*,0:num-1]
+FOR i=0L,n_elements(rr_reg[*,0])-1 DO BEGIN
+   cmd='rr'+strtrim(i+1,2)+'=reform(rr_reg[i,*])'
+   tmp=execute(cmd)
+ENDFOR
 readcol,'RR.txt',rr_tot,format='D',numline=num
 rr_tot_norm=rr_tot
 rr_tot=rr_tot*n_rand_tot*n_rand_tot
