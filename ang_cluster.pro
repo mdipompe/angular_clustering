@@ -39,7 +39,7 @@
 ;    dmfile - must be set if /bias is set.  String name of file with
 ;             DM model, two columns: scale, w_theta)
 ;    n - number of pixels per side to use if jackknifing errors
-;        (default = 4).  Max is currently 9 due to IDL file format issues.
+;        (default = 9).
 ;
 ;  KEYWORDS:
 ;    fitplaws - Set to fit powerlaws (2 parameter and fixed slope=-1) to
@@ -92,7 +92,7 @@ IF ~keyword_set(minscale) THEN minscale=0.0027
 IF ~keyword_set(maxscale) THEN maxscale=2.
 
 ;MAD Set default number of pixels per side if doing jackknife errors
-IF (~keyword_set(n) AND keyword_set(jackkinfe)) THEN n=4
+IF (~keyword_set(n) AND keyword_set(jackkinfe)) THEN n=9
 
 ;MAD If jackknife keyword set (and they haven't been already), split data into 
 ;16 pixels for jackknife calculations
@@ -230,11 +230,11 @@ IF (~keyword_set(data2) OR keyword_set(jackknife)) THEN BEGIN
       ENDWHILE
 
       ;MAD Write out RR counts text file
-      openw,1,'RR.txt'
+      openw,lun,'RR.txt',/get_lun
       FOR i=0L,n_elements(h_rr)-1 DO BEGIN
-         printf,1,h_rr[i],format='(D)'
+         printf,lun,h_rr[i],format='(D)'
       ENDFOR
-      close,1
+      close,lun
 
    ;MAD If RR counts have already been done, read them in
    ENDIF ELSE BEGIN
@@ -246,18 +246,18 @@ IF (~keyword_set(data2) OR keyword_set(jackknife)) THEN BEGIN
    IF (keyword_set(jackknife)) THEN BEGIN
       IF (rr_reg_file EQ '') THEN BEGIN
          print,'Ang_cluster - writing out RR counts per region...'
-         openw,1,'rr_reg.txt'
-         FOR w=0L,n_elements(bin_cent)-1 DO BEGIN
-            xx=where(finite(rr_regions[*,w]) EQ 0,cnt)
-            IF (cnt NE 0) THEN rr_regions[xx,w] = -9999
+         openw,lun,'rr_reg.txt',/get_lun
+         FOR w=0L,max(rand.reg)-1 DO BEGIN
+            xx=where(finite(rr_regions[w,*]) EQ 0,cnt)
+            IF (cnt NE 0) THEN rr_regions[w,xx] = -9999
             fmtstring='('
-            FOR l=0L,max(rand.reg)-2 DO BEGIN
+            FOR l=0L,n_elements(bin_cent)-2 DO BEGIN
                fmtstring=fmtstring+'E,1x,'
             ENDFOR
             fmtstring=fmtstring+'E)'
-            printf,1,rr_regions[*,w],format=fmtstring
+            printf,lun,rr_regions[w,*],format=fmtstring
          ENDFOR
-         close,1
+         close,lun
       ENDIF
    ENDIF
 ENDIF
@@ -383,11 +383,11 @@ IF (d_file EQ '') THEN BEGIN
       ENDELSE
    ENDWHILE
    ;MAD Write out DD counts text file
-   openw,1,'DD_DR.txt'
+   openw,lun,'DD_DR.txt',/get_lun
    FOR i=0L,n_elements(h_dd)-1 DO BEGIN
-      printf,1,h_dd[i],h_dr[i],format='(D,D)'
+      printf,lun,h_dd[i],h_dr[i],format='(D,D)'
    ENDFOR
-   close,1
+   close,lun
 ;MAD If DD/DR counts have already been done, read them in
 ENDIF ELSE BEGIN
    print,'Ang_cluster - reading in previous DD/DR counts...'
@@ -397,18 +397,18 @@ ENDELSE
 ;MAD If doing errors, then write out DD file for those
 IF (keyword_set(jackknife)) THEN BEGIN
    IF (dd_reg_file EQ '') THEN BEGIN
-      openw,1,'dd_reg.txt'
-      FOR w=0L,n_elements(bin_cent)-1 DO BEGIN
-         xx=where(finite(dd_regions[*,w]) EQ 0,cnt)
-         IF (cnt NE 0) THEN dd_regions[xx,w] = -9999
+      openw,lun,'dd_reg.txt',/get_lun
+      FOR w=0L,max(rand.reg)-1 DO BEGIN
+         xx=where(finite(dd_regions[w,*]) EQ 0,cnt)
+         IF (cnt NE 0) THEN dd_regions[w,xx] = -9999
          fmtstring='('
-         FOR l=0L,max(rand.reg)-2 DO BEGIN
+         FOR l=0L,n_elements(bin_cent)-2 DO BEGIN
             fmtstring=fmtstring+'E,1x,'
          ENDFOR
          fmtstring=fmtstring+'E)'
-         printf,1,dd_regions[*,w],format=fmtstring
-      ENDFOR
-      close,1
+         printf,lun,dd_regions[w,*],format=fmtstring
+      ENDFOR      
+      close,lun
    ENDIF
 ENDIF
 
@@ -416,18 +416,18 @@ ENDIF
 IF (keyword_set(jackknife)) THEN BEGIN
    IF (dr_reg_file EQ '') THEN BEGIN
       print,'Ang_cluster - writing out DD/DR counts per region...'
-      openw,1,'dr_reg.txt'
-      FOR w=0L,n_elements(bin_cent)-1 DO BEGIN
-         xx=where(finite(dr_regions[*,w]) EQ 0,cnt)
-         IF (cnt NE 0) THEN dr_regions[xx,w] = -9999
+      openw,lun,'dr_reg.txt',/get_lun
+      FOR w=0L,max(rand.reg)-1 DO BEGIN
+         xx=where(finite(dr_regions[w,*]) EQ 0,cnt)
+         IF (cnt NE 0) THEN dr_regions[w,xx] = -9999
          fmtstring='('
-         FOR l=0L,max(rand.reg)-2 DO BEGIN
+         FOR l=0L,n_elements(bin_cent)-2 DO BEGIN
             fmtstring=fmtstring+'E,1x,'
          ENDFOR
          fmtstring=fmtstring+'E)'
-         printf,1,dr_regions[*,w],format=fmtstring
+         printf,lun,dr_regions[w,*],format=fmtstring
       ENDFOR
-      close,1
+      close,lun
    ENDIF
 ENDIF
 
@@ -455,11 +455,11 @@ ENDIF
 ;MAD Print main results to file (if errors not being done)
 IF ~keyword_set(jackknife) THEN BEGIN
    print,'Ang_cluster - writing out auto/cross-correlation results...'
-   openw,1,outfile
+   openw,lun,outfile,/get_lun
    FOR i=0L,n_elements(w_theta)-1 DO BEGIN
-      printf,1,theta[i],w_theta[i]
+      printf,lun,theta[i],w_theta[i]
    ENDFOR
-   close,1
+   close,lun
 ENDIF
 
 

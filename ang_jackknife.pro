@@ -76,14 +76,14 @@ ENDIF
 
 
 ;MAD Open file to write jackknife results
-openw,1,'jackknife_results.txt'
+openw,lun,'jackknife_results.txt',/get_lun
 
 ;MAD Read in RR data from ang_cluster.pro 
 print,'Ang_jackknife - Reading counts/region files...'
 readcol,'RR.txt',rr_tot,format='D'
 rr_reg=read_matrix('rr_reg.txt')
-FOR i=0L,n_elements(rr_reg[*,0])-1 DO BEGIN
-   cmd='rr'+strtrim(i+1,2)+'=reform(rr_reg[i,*])'
+FOR i=0L,n_elements(rr_reg[0,*])-1 DO BEGIN
+   cmd='rr'+strtrim(i+1,2)+'=reform(rr_reg[*,i])'
    tmp=execute(cmd)
 ENDFOR
 
@@ -97,13 +97,13 @@ n_rand_pix=dblarr(max(rand.reg))
 ;MAD Read in DD/DR data from ang_cluster.pro
 readcol,'DD_DR.txt',dd_tot,dr_tot,format='D,D'
 dd_reg=read_matrix('dd_reg.txt')
-FOR i=0L,n_elements(dd_reg[*,0])-1 DO BEGIN
-   cmd='dd'+strtrim(i+1,2)+'=reform(dd_reg[i,*])'
+FOR i=0L,n_elements(dd_reg[0,*])-1 DO BEGIN
+   cmd='dd'+strtrim(i+1,2)+'=reform(dd_reg[*,i])'
    tmp=execute(cmd)
 ENDFOR
 dr_reg=read_matrix('dr_reg.txt')
-FOR i=0L,n_elements(dr_reg[*,0])-1 DO BEGIN
-   cmd='dr'+strtrim(i+1,2)+'=reform(dr_reg[i,*])'
+FOR i=0L,n_elements(dr_reg[0,*])-1 DO BEGIN
+   cmd='dr'+strtrim(i+1,2)+'=reform(dr_reg[*,i])'
    tmp=execute(cmd)
 ENDFOR
 
@@ -162,12 +162,12 @@ FOR i=1L,max(rand.reg) DO BEGIN
    ENDIF
 
    FOR k=0L,n_elements(w_theta)-1 DO BEGIN
-      printf,1,bin_cent[k],w_theta[k],i
+      printf,lun,bin_cent[k],w_theta[k],i
    ENDFOR
 
    print,'Ang_jackknife - finished region ',strtrim(i,2)
 ENDFOR
-close,1
+close,lun
 
 
 ;MAD Calculate covariance matrix 
@@ -176,9 +176,9 @@ readcol,'jackknife_results.txt',theta_pix,w_theta_pix,pix,format='D,D,F'
 
 num=n_elements(theta_full)
 rr_reg=read_matrix('rr_reg.txt')
-rr_reg=rr_reg[*,0:num-1]
-FOR i=0L,n_elements(rr_reg[*,0])-1 DO BEGIN
-   cmd='rr'+strtrim(i+1,2)+'=reform(rr_reg[i,*])'
+rr_reg=rr_reg[0:num-1,*]
+FOR i=0L,n_elements(rr_reg[0,*])-1 DO BEGIN
+   cmd='rr'+strtrim(i+1,2)+'=reform(rr_reg[*,i])'
    tmp=execute(cmd)
 ENDFOR
 readcol,'RR.txt',rr_tot,format='D',numline=num
@@ -199,15 +199,15 @@ ENDFOR
 
 ;MAD Write out covariance matrix file for fitting
 print,'Ang_jackknife - writing out covariance matrix...'
-openw,1,'covariance.txt'
+openw,lun,'covariance.txt',/get_lun
 formatstring=strarr(n_elements(theta_full))+'D,1x,'
 formatstring[0]='(D,1x,'
 formatstring[n_elements(formatstring)-1]='D)'
 formatstring=strjoin(formatstring)
 FOR i=0,n_elements(theta_full)-1 DO BEGIN
-   printf,1,C[i,*],format=formatstring
+   printf,lun,C[i,*],format=formatstring
 ENDFOR
-close,1
+close,lun
 
 ;MAD Pull out the diagonals of the covariance matrix
 FOR i=0L,n_elements(theta_full)-1 DO BEGIN
@@ -230,11 +230,11 @@ ENDFOR
 ;MAD Write out final file with 1-sigma errors from diagonals
 IF keyword_set(outfile) THEN BEGIN
    print,'Ang_jackknife - Writing final results file with standard errors...'
-   openw,1,outfile
+   openw,lun,outfile,/get_lun
    FOR i=0,n_elements(diag)-1 DO BEGIN
-      printf,1,theta_full[i],w_theta_full[i],errors[i],format='(F,1x,D,1x,D)'
+      printf,lun,theta_full[i],w_theta_full[i],errors[i],format='(F,1x,D,1x,D)'
    ENDFOR
-   close,1
+   close,lun
 ENDIF
 
 
