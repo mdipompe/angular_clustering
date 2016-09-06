@@ -51,6 +51,8 @@
 ;    3-27-15 - Reworked and cleaned - MAD (UWyo)
 ;    11-5-15 - Included min chi^2 as output - MAD (Dartmouth) 
 ;    11-6-15 - Added b(z) option - MAD (Dartmouth)
+;     9-6-16 - Removed skipping of negative jackknife bins in fit -
+;              MAD (Dartmouth)
 ;-
 PRO fit_ang_cluster,theta,w_theta,errors,bias,biaserr,$
                     minscale=minscale,maxscale=maxscale,$
@@ -75,44 +77,22 @@ circsym,/fill
 
 ;MAD Read in covariance matrix
 print,'fit_ang_cluster - reading in covariance matrix...'
-read_square_matrix,n_elements(theta),filepath+'covariance.txt',C
+C=read_matrix(filepath+'covariance.txt')
 
 ;MAD Limit to regions of interest (set by min/max scale keywords)
-inscale=where((theta GT minscale*60.) AND (theta LT maxscale*60.))
+inscale=where((theta GE minscale*60.) AND (theta LE maxscale*60.))
 bin=theta[inscale]
 wtheta=w_theta[inscale]
 errors=errors[inscale]
 C=C[inscale,*]
 C=C[*,inscale]
 
-;MAD Look at jackknife iterations, don't fit bins where these might go negative
-fitflag=0
-w_theta_fit=wtheta
-readcol,filepath+'jackknife_results.txt',jackbin,jackw_theta,jackpix,format='D,D,F'
-FOR i=1,max(jackpix) DO BEGIN
-   xx=where(jackpix EQ i)
-   tempbin=jackbin[xx]
-   tempw=jackw_theta[xx]
-   xx=where((tempbin GT minscale*60.) AND (tempbin LT maxscale*60.))
-   tempbin=tempbin[xx]
-   tempw=tempw[xx]
-   yy=where(tempw LE 0)
-   IF (yy[0] NE -1) THEN BEGIN
-      w_theta_fit[yy] = -9999
-      fitflag=1
-   ENDIF
-ENDFOR
-
-;MAD limit fitting to values of w_theta > 0 in all jackknives
-okfit=where(w_theta_fit GT 0.)
-
-
 ;MAD Fit power laws if keyword set
 IF keyword_set(fitplaws) THEN BEGIN
    ;MAD Fit power-law with mpfitfun to generate an initial guess
    print,'fit_ang_cluster - getting intial power-law parameter guesses...'
    guess=[10.,-1.]
-   fit_plaw=mpfitfun('powerlaw',bin[okfit]/60.,wtheta[okfit],errors[okfit],guess,perror=fit_plaw_errs,/quiet)
+   fit_plaw=mpfitfun('powerlaw',bin/60.,wtheta,errors,guess,perror=fit_plaw_errs,/quiet)
    x_plaw=findgen(100)+0.00001
    y_plaw=fit_plaw[0]*x_plaw^(fit_plaw[1])
 
@@ -127,7 +107,7 @@ IF keyword_set(fitplaws) THEN BEGIN
    ;MAD Fit fixed slope power-law with mpfitfun for initial guess
    print,'fit_ang_cluster - getting initial fixed-slope power-law guesses...'
    guess=[10.]
-   fit_fixed=mpfitfun('powerlaw_fixedslope',bin[okfit]/60.,wtheta[okfit],errors[okfit],guess,perror=fit_fixed_errs,/quiet)
+   fit_fixed=mpfitfun('powerlaw_fixedslope',bin/60.,wtheta,errors,guess,perror=fit_fixed_errs,/quiet)
    x_fixed=findgen(100)+0.00001
    y_fixed=fit_fixed[0]*x_fixed^(-1.)
 
@@ -140,15 +120,13 @@ IF keyword_set(fitplaws) THEN BEGIN
    chisq_plaw=dblarr(n_elements(A_guess_plaw),n_elements(d_guess_plaw))
    chisq_fixed=dblarr(n_elements(A_guess_fixed))
    C_inv=invert(C,/double)
-   C_inv_use=C_inv[*,okfit]
-   C_inv_use=C_inv_use[okfit,*]
 
    ;;MAD Fit using just the variance terms of the covariance matrix
    ;FOR i=0L,n_elements(A_guess_plaw)-1 DO BEGIN
    ; FOR j=0L,n_elements(d_guess_plaw)-1 DO BEGIN
-   ;  FOR k=0L,n_elements(bin[okfit])-1 DO BEGIN
-   ;   val=A_guess_plaw[i]*((bin[okfit[k]]/60.)^d_guess_plaw[j])
-   ;   temp=(wtheta[okfit[k]]-val) * C_inv_use[k,k] * (wtheta[okfit[k]]-val)
+   ;  FOR k=0L,n_elements(bin)-1 DO BEGIN
+   ;   val=A_guess_plaw[i]*((bin[k]/60.)^d_guess_plaw[j])
+   ;   temp=(wtheta[k]-val) * C_inv[k,k] * (wtheta[k]-val)
    ;   chisq_plaw[i,j]=chisq_plaw[i,j]+temp
    ;  ENDFOR
    ; ENDFOR
@@ -158,8 +136,8 @@ IF keyword_set(fitplaws) THEN BEGIN
    print,'fit_ang_cluster - Building power-law chi^2 matrix...'
    FOR i=0L,n_elements(A_guess_plaw)-1 DO BEGIN
       FOR j=0L,n_elements(d_guess_plaw)-1 DO BEGIN
-         val=A_guess_plaw[i]*((bin[okfit]/60.)^d_guess_plaw[j])
-         temp=(wtheta[okfit]-val) # C_inv_use # (wtheta[okfit]-val)
+         val=A_guess_plaw[i]*((bin/60.)^d_guess_plaw[j])
+         temp=(wtheta-val) # C_inv # (wtheta-val)
          chisq_plaw[i,j]=chisq_plaw[i,j]+temp
       ENDFOR
    ENDFOR
@@ -210,8 +188,8 @@ IF keyword_set(fitplaws) THEN BEGIN
    ;MAD Loop over fixed-splope power-law guesses to fill chi^2 array
    print,'fit_ang_cluster - Building power-law fixed chi^2 array...'
    FOR i=0L,n_elements(A_guess_fixed)-1 DO BEGIN
-      val=A_guess_fixed[i]*((bin[okfit]/60.)^(-1.))
-      temp=(wtheta[okfit]-val) # C_inv_use # (wtheta[okfit]-val)
+      val=A_guess_fixed[i]*((bin/60.)^(-1.))
+      temp=(wtheta-val) # C_inv # (wtheta-val)
       chisq_fixed[i]=chisq_fixed[i]+temp
    ENDFOR
 
@@ -268,10 +246,6 @@ IF keyword_set(fitplaws) THEN BEGIN
    ;MAD Print results to screen
    print,' '
 
-   IF (fitflag EQ 1) THEN print,'***************************************************************************'
-   IF (fitflag EQ 1) THEN print,'***SOME POINTS WERE LEFT OUT OF FIT DUE TO NEGATIVE W_THETA IN JACKKNIFE***'
-   IF (fitflag EQ 1) THEN print,'***************************************************************************'
-
    print,'Fixed slope covar fit errors are based on a delta chi^2 of ',strtrim(dchi_A_fixed,2),' (for A)'
    print,'Power-law covar fit errors are based on a delta chi^2 of ',strtrim(dchi_A_plaw,2),' (for A)'
    print,'Power-law covar fit errors are based on a delta chi^2 of ',strtrim(dchi_d_plaw,2),' (for delta)'
@@ -317,15 +291,13 @@ IF keyword_set(fitbias) THEN BEGIN
    ;MAD Initialize arrays of Chi^2 values to fill; invert covariance matrix
    chisq=dblarr(n_elements(b_guess))
    C_inv=invert(C,/double)
-   C_inv_use=C_inv[*,okfit]
-   C_inv_use=C_inv_use[okfit,*]
 
    ;MAD Loop over bias values to get chi-sq using just variance...
 ;   print,'fit_bias - Building bias chi^2 array...'
 ;   FOR i=0L,n_elements(b_guess)-1 DO BEGIN
-;    FOR k=0L,n_elements(bin[okfit])-1 DO BEGIN
-;     val=dmw[okfit[k]]*(b_guess[i]^2.)
-;     temp=(wtheta[okfit[k]]-val) * C_inv_use[k,k] * (wtheta[okfit[k]]-val)
+;    FOR k=0L,n_elements(bin)-1 DO BEGIN
+;     val=dmw[k]*(b_guess[i]^2.)
+;     temp=(wtheta[k]-val) * C_inv[k,k] * (wtheta[k]-val)
 ;     chisq[i]=chisq[i]+temp
 ;    ENDFOR
 ;   ENDFOR
@@ -333,9 +305,9 @@ IF keyword_set(fitbias) THEN BEGIN
    ;MAD Loop over bias values to get chi-sq using covariance...
    print,'fit_bias - Building bias chi^2 array...'
    FOR i=0L,n_elements(b_guess)-1 DO BEGIN
-      IF ~keyword_set(bz) THEN val=dmw[okfit]*(b_guess[i]^2.) ELSE $
-         val=dmw[okfit]*(b_guess[i])
-      temp=(wtheta[okfit]-val) # C_inv_use # (wtheta[okfit]-val)
+      IF ~keyword_set(bz) THEN val=dmw*(b_guess[i]^2.) ELSE $
+         val=dmw*(b_guess[i])
+      temp=(wtheta-val) # C_inv # (wtheta-val)
       chisq[i]=chisq[i]+temp
    ENDFOR
 
@@ -347,7 +319,7 @@ IF keyword_set(fitbias) THEN BEGIN
    print,'fit_bias - finding min chi^2 and best fit...'
    minchi=where(chisq EQ min(chisq))
    best_b=b_guess[minchi]
-   y=dmw[okfit]*(best_b[0]^2.)
+   y=dmw*(best_b[0]^2.)
 
    minchi2=chisq[minchi]
    
@@ -371,7 +343,7 @@ IF keyword_set(fitbias) THEN BEGIN
    nice_plot,0.002,5.0,0.0005,10.,xtit=xtit,ytit=ytit,/xlog,/ylog
    oplot,bin/60.,wtheta,psym=-8,color=cgcolor('blue')
    oploterror,bin/60.,wtheta,errors,psym=3,color=cgcolor('blue')
-   oplot,dmbin[okfit]/60.,y,linestyle=1
+   oplot,dmbin/60.,y,linestyle=1
    IF (keyword_set(biasplot)) THEN PS_end,/png
 
    bias=best_b[0]
@@ -379,10 +351,6 @@ IF keyword_set(fitbias) THEN BEGIN
 
    ;MAD Print results to screen
    print,' '
-
-   IF (fitflag EQ 1) THEN print,'***************************************************************************'
-   IF (fitflag EQ 1) THEN print,'***SOME POINTS WERE LEFT OUT OF FIT DUE TO NEGATIVE W_THETA IN JACKKNIFE***'
-   IF (fitflag EQ 1) THEN print,'***************************************************************************'
 
    IF ~keyword_set(bz) THEN BEGIN
       print,'Bias fit has chi^2 of ',strtrim(minchi2,2)
