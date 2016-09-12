@@ -112,7 +112,7 @@ PRO mcmc_bias,theta,omega,error,modtheta,modomega,bias,$
   n_accept=0.
 
   ;MAD Start MCMC chain (Metropolis-Hastings chain)
-  print,'MCMC_CLUSTER_FIT - Starting MCMC chain...'
+  print,'MCMC_BIAS - Starting MCMC chain...'
   FOR i=0L,samples-1 DO BEGIN
      counter,i,samples
      ;MAD Get proposed new bias
@@ -196,8 +196,10 @@ PRO mcmc_bias,theta,omega,error,modtheta,modomega,bias,$
      PS_end
   ENDIF
 
+  print,'MCMC_BIAS - accepted fraction is '+strtrim(f_accept,2)
+  
   ;MAD End timer
-  print,'MCMC_CLUSTER_FIT - '
+  print,'MCMC_BIAS - '
   et=timer(st=st,/fin,unit='s')
   
   return
