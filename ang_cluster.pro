@@ -106,7 +106,8 @@ IF (keyword_set(jackknife)) THEN BEGIN
       IF ((tagflag_data EQ 0) OR (tagflag_rand EQ 0) OR (tagflag_data2 EQ 0)) THEN BEGIN
          split_regions_gen,data_in,rand_in,data,rand,n=n, frac=frac, $
                            data_fileout='data_reg.fits',rand_fileout='rand_reg.fits', $
-                           data2_in=data2_in,data2_fileout='data2_reg.fits',/figures
+                           data2_in=data2_in,data2_fileout='data2_reg.fits',$
+                           split_file='jack_splits.txt',/figures
       ENDIF ELSE BEGIN
          data=mrdfits('data_reg.fits',1)
          rand=mrdfits('rand_reg.fits',1)
@@ -115,7 +116,8 @@ IF (keyword_set(jackknife)) THEN BEGIN
    ENDIF ELSE BEGIN
       IF ((tagflag_data EQ 0) OR (tagflag_rand EQ 0)) THEN BEGIN
          split_regions_gen,data_in,rand_in,data,rand, n=n, frac=frac, $
-                           data_fileout='data_reg.fits',rand_fileout='rand_reg.fits',/figures
+                           data_fileout='data_reg.fits',rand_fileout='rand_reg.fits',$
+                           split_file='jack_splits.txt',/figures
       ENDIF ELSE BEGIN
          data=mrdfits('data_reg.fits',1)
          rand=mrdfits('rand_reg.fits',1)
