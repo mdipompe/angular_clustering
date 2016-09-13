@@ -9,7 +9,9 @@
 ;    split_regions_gen,data_in,rand_in,data_out,rand_out,$
 ;                      N=n,frac=frac,data_fileout='data.fits',$
 ;                      rand_fileout='rand.fits',data2_in=data2,$
-;                      data2_fileout='data2.fits',/figures
+;                      data2_fileout='data2.fits',$
+;                      split_file='splits_file.txt',$
+;                      /figures
 ;
 ;  INPUT:
 ;    data_in - structure or fits file name of data.  Must have tags RA
@@ -30,6 +32,11 @@
 ;               doing a cross-correlation)
 ;    data2_fileout - name of fits file to write second data set to,
 ;                    with additional region tag
+;    split_file - name of file for location of splits. If already
+;                 exists, will read in and apply.  If not, will
+;                 write results to file.  Format is pixel/region,lower
+;                 dec limit, upper dec limit, lower ra limit, upper ra limit.
+;
 ;
 ;  KEYWORDS:
 ;    figures - make plots highlighting pixelization of data/randoms
@@ -42,13 +49,15 @@
 ;
 ;  HISTORY:
 ;    8-31-16 - Written - MAD (Dartmouth)
+;    9-13-16 - Added ra and dec split in/out option - MAD (Dartmouth)
 ;-
 PRO split_regions_gen,data_in,rand_in,data_out,rand_out,N=N,frac=frac,$
                       data_fileout=data_fileout,rand_fileout=rand_fileout,$
-                      data2_in=data2_in,data2_fileout=data2_fileout,figures=figures
+                      data2_in=data2_in,data2_fileout=data2_fileout,figures=figures,$
+                      split_file=split_file
 
   ;MAD Set defaults
-  IF ~keyword_set(N) THEN N=16
+  IF ~keyword_set(N) THEN N=4
 
   ;MAD if given file names, read in
   IF (size(data_in,/type) EQ 7) THEN data=mrdfits(data_in,1) ELSE data=data_in
@@ -73,103 +82,140 @@ PRO split_regions_gen,data_in,rand_in,data_out,rand_out,N=N,frac=frac,$
   n_dec_cuts=n-1.
   n_ra_cuts=n-1.
 
-  ;MAD sort declinations to find splits
-  print,'SPLIT_REGIONS - finding splits in DEC...'
-  decs=rand_out[bsort(rand_out.dec)].dec
-  ;MAD Only use some of the random sample if frac is set
-  IF keyword_set(frac) THEN BEGIN
-     indx=randomu(718,n_elements(decs)*frac)*(n_elements(decs)-1)
-     decs=decs[indx]
-     decs=decs[bsort(decs)]
-  ENDIF
-  ;MAD Loop over sorted decs to find splits
-  j=0
-  i=0L
-  WHILE (n_elements(dec_cuts) LT n_dec_cuts) DO BEGIN
-     counter,i,n_elements(decs)
-     tmp=n_elements(where(decs LT decs[i]))*1./n_elements(decs)
-     IF (tmp GE ((j+1.)*(ntot/n))/ntot) THEN BEGIN
-        IF (n_elements(dec_cuts) EQ 0) THEN dec_cuts=decs[i] ELSE $
-           dec_cuts=[dec_cuts,decs[i]]
-        j=j+1
-     ENDIF
-     i=i+1
-  ENDWHILE  
-
-  ;MAD Add min and max decs to cuts, split up by region
-  dec_cuts=[min(rand_out.dec),dec_cuts,max(rand_out.dec)+0.1]
-  FOR i=0L,n_elements(dec_cuts)-2 DO BEGIN
-     xx=where(rand_out.dec GE dec_cuts[i] AND rand_out.dec LT dec_cuts[i+1])
-     rand_out[xx].reg=i+1
-     xx=where(data_out.dec GE dec_cuts[i] AND data_out.dec LT dec_cuts[i+1])
-     data_out[xx].reg=i+1
-     IF keyword_set(data2_in) THEN BEGIN
-        xx=where(data2_out.dec GE dec_cuts[i] AND data2_out.dec LT dec_cuts[i+1])
-        data2_out[xx].reg=i+1
-     ENDIF
-  ENDFOR
-
-  ;MAD Loop over splits by DEC to split in ra.
-  ;MAD The "w" index counts final regions
-  w=1.
-  FOR i=0L,n-1 DO BEGIN
-     print,'SPLIT_REGIONS - finding splits in RA, DEC strip '+strtrim(i+1,2)+'...'
-     used=where(data_out.reg EQ i+1)
-     usedata=data_out[used]
-     IF keyword_set(data2_in) THEN BEGIN
-        used2=where(data2_out.reg EQ i+1)
-        usedata2=data2_out[used2]
-     ENDIF
-     user=where(rand_out.reg EQ i+1)
-     userand=rand_out[user]
-     ras=userand[bsort(userand.ra)].ra
-     ;MAD Only use subset if frac is set
-     IF keyword_set(frac) THEN BEGIN
-        indx=randomu(123,n_elements(ras)*frac)*(n_elements(ras)-1)
-        ras=ras[indx]
-        ras=ras[bsort(ras)]
-     ENDIF
-
-     k=0
-     j=0L
-     WHILE (n_elements(ra_cuts) LT n_ra_cuts) DO BEGIN
-        counter,j,n_elements(ras)
-        tmp=n_elements(where(ras LT ras[j]))*(1./n_elements(ras))
-        IF (tmp GE ((k+1.)*(ntot/n))/ntot) THEN BEGIN
-           IF (n_elements(ra_cuts) EQ 0) THEN ra_cuts=ras[j] ELSE $
-              ra_cuts=[ra_cuts,ras[j]]
-           k=k+1
-        ENDIF
-        j=j+1
-     ENDWHILE
-
-     ;MAD Add min and max RA, loop and give unique region names
-     ;MAD That can't be the same as the ones used for the first
-     ;MAD declination regions (which is why they are negative)
-     ra_cuts=[min(userand.ra),ra_cuts,max(userand.ra)+0.1]
-
-     FOR v=0L,n_elements(ra_cuts)-2 DO BEGIN
-        xx=where(rand_out[user].ra GE ra_cuts[v] AND rand_out[user].ra LT ra_cuts[v+1])
-        rand_out[user[xx]].reg=w*(-1)
-        xx=where(data_out[used].ra GE ra_cuts[v] AND data_out[used].ra LT ra_cuts[v+1])
-        data_out[used[xx]].reg=w*(-1)
+  ;MAD if file supplied, use to apply splits, otherwise find them
+  IF keyword_set(split_file) THEN check=file_search(split_file) ELSE check=''
+  IF (check NE '') THEN BEGIN
+     print,'SPLIT_REGIONS - using supplied RA and Dec cuts...'
+     readcol,split_file,pix,dec_cuts_low,dec_cuts_high,ra_cuts_low,ra_cuts_high,format='F'
+     FOR i=0,n_elements(pix)-1 DO BEGIN
+        data_out[where((data_out.dec GE dec_cuts_low[i]) AND $
+                       (data_out.dec LT dec_cuts_high[i]) AND $
+                       (data_out.ra GE ra_cuts_low[i]) AND $
+                       (data_out.ra LT ra_cuts_high[i]))].reg = pix[i]
+        rand_out[where((rand_out.dec GE dec_cuts_low[i]) AND $
+                       (rand_out.dec LT dec_cuts_high[i]) AND $
+                       (rand_out.ra GE ra_cuts_low[i]) AND $
+                       (rand_out.ra LT ra_cuts_high[i]))].reg = pix[i]
         IF keyword_set(data2_in) THEN BEGIN
-           xx=where(data2_out[used2].ra GE ra_cuts[v] AND data2_out[used2].ra LT ra_cuts[v+1])
-           data2_out[used2[xx]].reg=w*(-1)
-        ENDIF
-        w=w+1
+           data2_out[where((data2_out.dec GE dec_cuts_low[i]) AND $
+                           (data2_out.dec LT dec_cuts_high[i]) AND $
+                           (data2_out.ra GE ra_cuts_low[i]) AND $
+                           (data2_out.ra LT ra_cuts_high[i]))].reg = pix[i]
+        ENDIF   
      ENDFOR
-     ;MAD Delete the RA cuts so the WHILE loop above works again
-     IF (n_elements(ra_cuts_save) EQ 0) THEN ra_cuts_save=ra_cuts ELSE $
-        ra_cuts_save=[ra_cuts_save,ra_cuts]
-     undefine,ra_cuts
-  ENDFOR
+  ENDIF ELSE BEGIN  
+     ;MAD open output file if set
+     IF keyword_set(split_file) THEN openw,lun,split_file,/get_lun
+     ;MAD sort declinations to find splits
+     print,'SPLIT_REGIONS - finding splits in DEC...'
+     decs=rand_out[bsort(rand_out.dec)].dec
+     ;MAD Only use some of the random sample if frac is set
+     IF keyword_set(frac) THEN BEGIN
+        indx=randomu(718,n_elements(decs)*frac)*(n_elements(decs)-1)
+        decs=decs[indx]
+        decs=decs[bsort(decs)]
+     ENDIF
+     ;MAD Loop over sorted decs to find splits
+     j=0
+     i=0L
+     WHILE (n_elements(dec_cuts) LT n_dec_cuts) DO BEGIN
+        counter,i,n_elements(decs)
+        tmp=n_elements(where(decs LT decs[i]))*1./n_elements(decs)
+        IF (tmp GE ((j+1.)*(ntot/n))/ntot) THEN BEGIN
+           IF (n_elements(dec_cuts) EQ 0) THEN dec_cuts=decs[i] ELSE $
+              dec_cuts=[dec_cuts,decs[i]]
+           j=j+1
+        ENDIF
+        i=i+1
+     ENDWHILE  
 
-  ;MAD Fix the region indices so they are positive
-  rand_out.reg=rand_out.reg*(-1)
-  data_out.reg=data_out.reg*(-1)
-  IF keyword_set(data2_in) THEN data2_out.reg=data2_out.reg*(-1)
-  
+     ;MAD Add min and max decs to cuts
+     dec_cuts=[min(rand_out.dec),dec_cuts,max(rand_out.dec)+0.1]
+     
+     ;MAD Apply dec splits
+     FOR i=0L,n_elements(dec_cuts)-2 DO BEGIN
+        xx=where(rand_out.dec GE dec_cuts[i] AND rand_out.dec LT dec_cuts[i+1])
+        rand_out[xx].reg=i+1
+        xx=where(data_out.dec GE dec_cuts[i] AND data_out.dec LT dec_cuts[i+1])
+        data_out[xx].reg=i+1
+        IF keyword_set(data2_in) THEN BEGIN
+           xx=where(data2_out.dec GE dec_cuts[i] AND data2_out.dec LT dec_cuts[i+1])
+           data2_out[xx].reg=i+1
+        ENDIF
+     ENDFOR
+
+     ;MAD Loop over splits by DEC to split in ra.
+     ;MAD The "w" index counts final regions
+     w=1.
+     count=1.
+     print,'SPLIT_REGIONS - finding splits in RA, for each DEC strip...'
+     FOR i=0L,n-1 DO BEGIN
+        counter,i,n
+        used=where(data_out.reg EQ i+1)
+        usedata=data_out[used]
+        IF keyword_set(data2_in) THEN BEGIN
+           used2=where(data2_out.reg EQ i+1)
+           usedata2=data2_out[used2]
+        ENDIF
+        user=where(rand_out.reg EQ i+1)
+        userand=rand_out[user]
+        ras=userand[bsort(userand.ra)].ra
+        ;MAD Only use subset if frac is set
+        IF keyword_set(frac) THEN BEGIN
+           indx=randomu(123,n_elements(ras)*frac)*(n_elements(ras)-1)
+           ras=ras[indx]
+           ras=ras[bsort(ras)]
+        ENDIF
+
+        k=0
+        j=0L
+        WHILE (n_elements(ra_cuts) LT n_ra_cuts) DO BEGIN
+           tmp=n_elements(where(ras LT ras[j]))*(1./n_elements(ras))
+           IF (tmp GE ((k+1.)*(ntot/n))/ntot) THEN BEGIN
+              IF (n_elements(ra_cuts) EQ 0) THEN ra_cuts=ras[j] ELSE $
+                 ra_cuts=[ra_cuts,ras[j]]
+              k=k+1
+           ENDIF
+           j=j+1
+        ENDWHILE
+
+        ;MAD Add min and max RA, write out if needed
+        ra_cuts=[min(userand.ra),ra_cuts,max(userand.ra)+0.1]
+        IF keyword_set(split_file) THEN BEGIN
+           FOR j=0L,n_elements(ra_cuts)-2 DO BEGIN
+              printf,lun,count,dec_cuts[i],dec_cuts[i+1],ra_cuts[j],ra_cuts[j+1],$
+                     format='(I,1x,F,1x,F,1x,F,1x,F)'
+              count=count+1
+           ENDFOR
+        ENDIF
+
+        ;MAD Loop and give unique region names
+        ;MAD that can't be the same as the ones used for the first
+        ;MAD declination regions (which is why they are negative)
+        FOR v=0L,n_elements(ra_cuts)-2 DO BEGIN
+           xx=where(rand_out[user].ra GE ra_cuts[v] AND rand_out[user].ra LT ra_cuts[v+1])
+           rand_out[user[xx]].reg=w*(-1)
+           xx=where(data_out[used].ra GE ra_cuts[v] AND data_out[used].ra LT ra_cuts[v+1])
+           data_out[used[xx]].reg=w*(-1)
+           IF keyword_set(data2_in) THEN BEGIN
+              xx=where(data2_out[used2].ra GE ra_cuts[v] AND data2_out[used2].ra LT ra_cuts[v+1])
+              data2_out[used2[xx]].reg=w*(-1)
+           ENDIF
+           w=w+1
+        ENDFOR
+       ;MAD Delete the RA cuts so the WHILE loop above works again
+        IF (n_elements(ra_cuts_save) EQ 0) THEN ra_cuts_save=ra_cuts ELSE $
+           ra_cuts_save=[ra_cuts_save,ra_cuts]
+        undefine,ra_cuts
+     ENDFOR
+     close,lun
+     
+     ;MAD Fix the region indices so they are positive
+     rand_out.reg=rand_out.reg*(-1)
+     data_out.reg=data_out.reg*(-1)
+     IF keyword_set(data2_in) THEN data2_out.reg=data2_out.reg*(-1)
+  ENDELSE
+
   ;MAD Write out files if needed
   IF keyword_set(data_fileout) THEN mwrfits,data_out,data_fileout,/create
   IF keyword_set(rand_fileout) THEN mwrfits,rand_out,rand_fileout,/create

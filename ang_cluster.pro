@@ -40,6 +40,7 @@
 ;             DM model, two columns: scale, w_theta)
 ;    n - number of pixels per side to use if jackknifing errors
 ;        (default = 9).
+;    frac - fraction of rands to use when splitting up regions for jackknife
 ;
 ;  KEYWORDS:
 ;    fitplaws - Set to fit powerlaws (2 parameter and fixed slope=-1) to
@@ -80,9 +81,9 @@
 ;-
 PRO ang_cluster,data_in,rand_in,theta,w_theta,data2_in=data2_in,$
                 errs=errs,maxscale=maxscale,minscale=minscale,outfile=outfile,bins=bins, $
-                fitplaws=fitplaws,jackknife=jackknife,n=n,fitbias=fitbias,dmfile=dmfile
+                fitplaws=fitplaws,jackknife=jackknife,n=n,frac=frac,fitbias=fitbias,dmfile=dmfile
 
-IF (n_elements(data_in) EQ 0) THEN message,'Syntax - ang_cluster,data,rand,theta,w_theta[,errs=errs,maxscale=maxscale,minscale=minscale,outfile=''outfile.txt'',bins=bins,/fitplaws,/jackknife,n=n,/fitbias,dmfile=''model_dm.txt'']'
+IF (n_elements(data_in) EQ 0) THEN message,'Syntax - ang_cluster,data,rand,theta,w_theta[,errs=errs,maxscale=maxscale,minscale=minscale,outfile=''outfile.txt'',bins=bins,/fitplaws,/jackknife,n=n,frac=frac,/fitbias,dmfile=''model_dm.txt'']'
 
 ;MAD Get start time
 st=systime(1)
@@ -93,6 +94,7 @@ IF ~keyword_set(maxscale) THEN maxscale=2.
 
 ;MAD Set default number of pixels per side if doing jackknife errors
 IF (~keyword_set(n) AND keyword_set(jackkinfe)) THEN n=9
+IF (~keyword_set(frac) AND keyword_set(jackknife)) THEN frac=0.5
 
 ;MAD If jackknife keyword set (and they haven't been already), split data into 
 ;16 pixels for jackknife calculations
@@ -102,7 +104,7 @@ IF (keyword_set(jackknife)) THEN BEGIN
    IF keyword_set(data2_in) THEN BEGIN
       tagflag_data2=tag_exist(data2_in,'reg',/quiet)
       IF ((tagflag_data EQ 0) OR (tagflag_rand EQ 0) OR (tagflag_data2 EQ 0)) THEN BEGIN
-         split_regions_gen,data_in,rand_in,data,rand,n=n, frac=0.5, $
+         split_regions_gen,data_in,rand_in,data,rand,n=n, frac=frac, $
                            data_fileout='data_reg.fits',rand_fileout='rand_reg.fits', $
                            data2_in=data2_in,data2_fileout='data2_reg.fits',/figures
       ENDIF ELSE BEGIN
@@ -112,7 +114,7 @@ IF (keyword_set(jackknife)) THEN BEGIN
       ENDELSE
    ENDIF ELSE BEGIN
       IF ((tagflag_data EQ 0) OR (tagflag_rand EQ 0)) THEN BEGIN
-         split_regions_gen,data_in,rand_in,data,rand, n=n, frac=0.5, $
+         split_regions_gen,data_in,rand_in,data,rand, n=n, frac=frac, $
                            data_fileout='data_reg.fits',rand_fileout='rand_reg.fits',/figures
       ENDIF ELSE BEGIN
          data=mrdfits('data_reg.fits',1)
