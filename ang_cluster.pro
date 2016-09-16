@@ -439,7 +439,8 @@ print,'Ang_cluster - calculating auto/cross-correlation, trimming bad data...'
 ;MAD Calculate auto/cross-correlation (Landy & Szalay 1993)
 IF ~keyword_set(data2) THEN $
    w_theta=(1./h_rr)*(h_dd-(2.*h_dr)+h_rr) ELSE $
-      w_theta=(h_dd/h_dr)-1.
+;      w_theta=(h_dd/h_dr)-1.
+               w_theta=(1./h_rr)*(h_dd-(2.*h_dr)+h_rr)
 theta=bin_cent
 
 ;If the scale of interest is larger than the maximum edge of
