@@ -5,7 +5,7 @@
 ;    Take a z distribution and fit a model dndz
 ;
 ;  USE:
-;    fit_dndz,realz,sampledz,dndz,binsize=binsize
+;    fit_dndz,realz,sampledz,dndz,binsize=binsize,outfile=outfile
 ;
 ;  INPUT:
 ;    realz - the z values of the real data set to fit
@@ -13,6 +13,7 @@
 ;
 ;  Optional Inputs:
 ;    binsize - the bin size of the histogram to fit (default 0.2)
+;    outfile - name of file with z and the fit (for testing/checks)
 ;
 ;  OUTPUT:
 ;    dndz - the values of the fit at sampledz
@@ -23,11 +24,13 @@
 ;    11-7-14 - Written - MAD (UWyo)
 ;    11-18-15 - Fixed accuracy bug in dndz normalization for small
 ;               bins - MAD (Dartmouth)
+;     9-15-16 - Added output file option - MAD (Dartmouth)
 ;-
-PRO fit_dndz,realz,sampledz,dndz,binsize=binsize
+PRO fit_dndz,realz,sampledz,dndz,binsize=binsize,outfile=outfile
 
 ;MAD Set defaults
 IF ~keyword_set(binsize) THEN binsize=0.2
+IF ~keyword_set(outfile) THEN outfile='dndz_fit.txt'
 
 ;MAD Bin the real data
 h=histogram(realz,binsize=binsize,min=0,max=max(realz))
@@ -56,12 +59,12 @@ fit[where((sampledz GT max(realz)) OR (sampledz LT min(realz)))]=0
 area=int_tabulated(sampledz,fit,/double)
 dndz=fit/area
 
-openw,1,'dndz_fit.txt'
-printf,1,';z     fit    dndz (normalized fit)'
+openw,lun,outfile,/get_lun
+printf,lun,';z     fit    dndz (normalized fit)'
 FOR i=0,n_elements(sampledz)-1 DO BEGIN
-  printf,1,sampledz[i],fit[i],dndz[i],format='(F,1x,F,1x,F)'
+  printf,lun,sampledz[i],fit[i],dndz[i],format='(F,1x,F,1x,F)'
 ENDFOR
-close,1
+close,lun
 
 return
 END
