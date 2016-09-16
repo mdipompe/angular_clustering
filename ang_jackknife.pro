@@ -116,6 +116,7 @@ dr_tot=dr_tot*n_data_tot*n_rand_tot
 ;MAD Start loop over included regions
 print,'Ang_jackknife - Looping over regions...'
 FOR i=1L,max(rand.reg) DO BEGIN
+   counter,i,max(rand.reg)
    use_data=data[where(data.reg NE i)]
    use_rand=rand[where(rand.reg NE i)]
    IF keyword_set(data2) THEN use_data2=data2[where(data2.reg NE i)]
@@ -146,8 +147,8 @@ FOR i=1L,max(rand.reg) DO BEGIN
    ;MAD Calculate autocorrelation
    IF ~keyword_set(data2) THEN $
       w_theta=(1./h_rr)*(h_dd-(2.*h_dr)+h_rr) ELSE $
-         w_theta=(h_dd/h_dr)-1.
-
+;         w_theta=(h_dd/h_dr)-1.
+                w_theta=(1./h_rr)*(h_dd-(2.*h_dr)+h_rr)
    ;If the scale of interest is slightly larger than the maximum edge of
    ;the bins, the last value is nonsense
    IF (maxscale*60. GT max(bin_edge)) THEN BEGIN
@@ -164,8 +165,6 @@ FOR i=1L,max(rand.reg) DO BEGIN
    FOR k=0L,n_elements(w_theta)-1 DO BEGIN
       printf,lun,bin_cent[k],w_theta[k],i
    ENDFOR
-
-   print,'Ang_jackknife - finished region ',strtrim(i,2)
 ENDFOR
 close,lun
 
