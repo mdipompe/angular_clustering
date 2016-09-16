@@ -86,7 +86,7 @@ PRO split_regions_gen,data_in,rand_in,data_out,rand_out,N=N,frac=frac,$
   IF keyword_set(split_file) THEN check=file_search(split_file) ELSE check=''
   IF (check NE '') THEN BEGIN
      print,'SPLIT_REGIONS - using supplied RA and Dec cuts...'
-     readcol,split_file,pix,dec_cuts_low,dec_cuts_high,ra_cuts_low,ra_cuts_high,format='F'
+     readcol,split_file,pix,dec_cuts_low,dec_cuts_high,ra_cuts_low,ra_cuts_high,format='I,D,D,D,D'
      FOR i=0,n_elements(pix)-1 DO BEGIN
         data_out[where((data_out.dec GE dec_cuts_low[i]) AND $
                        (data_out.dec LT dec_cuts_high[i]) AND $
@@ -130,7 +130,7 @@ PRO split_regions_gen,data_in,rand_in,data_out,rand_out,N=N,frac=frac,$
      ENDWHILE  
 
      ;MAD Add min and max decs to cuts
-     dec_cuts=[min(rand_out.dec),dec_cuts,max(rand_out.dec)+0.1]
+     dec_cuts=[min(rand_out.dec)-0.01,dec_cuts,max(rand_out.dec)+0.01]
      
      ;MAD Apply dec splits
      FOR i=0L,n_elements(dec_cuts)-2 DO BEGIN
@@ -180,11 +180,11 @@ PRO split_regions_gen,data_in,rand_in,data_out,rand_out,N=N,frac=frac,$
         ENDWHILE
 
         ;MAD Add min and max RA, write out if needed
-        ra_cuts=[min(userand.ra),ra_cuts,max(userand.ra)+0.1]
+        ra_cuts=[min(userand.ra)-0.01,ra_cuts,max(userand.ra)+0.01]
         IF keyword_set(split_file) THEN BEGIN
            FOR j=0L,n_elements(ra_cuts)-2 DO BEGIN
               printf,lun,count,dec_cuts[i],dec_cuts[i+1],ra_cuts[j],ra_cuts[j+1],$
-                     format='(I,1x,F,1x,F,1x,F,1x,F)'
+                     format='(I,1x,D,1x,D,1x,D,1x,D)'
               count=count+1
            ENDFOR
         ENDIF
