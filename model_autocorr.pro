@@ -28,6 +28,8 @@
 ;           correspond to zarray values (can generate with
 ;           fit_dndz.pro). If not set, defaults to look for file
 ;           called dndz.txt with real z values.
+;    dn_dz2 - string name of file with second sample dndz
+;            values (if modeling an cross-correlation) (or already fit dndzs)
 ;    zarray - array of z values power spectrum and dndz are calculated
 ;             for.  If not sets, defaults to 0.01 through 4.0 in steps
 ;             of 0.01
@@ -58,8 +60,9 @@
 ;    11-6-15 - Added b(z) functionality - MAD (Dartmouth)
 ;   11-19-15 - Added option to supply own dndz rather than auto
 ;              calling fit_dndz.txt (more flexible) - MAD (Dartmouth)
+;    9-15-16 - Added second dndz for cross correlation
 ;-
-PRO model_autocorr,theta,mod_w,power_spec=power_spec,dndz=dndz,$
+PRO model_autocorr,theta,mod_w,power_spec=power_spec,dndz=dndz,dn_dz2=dn_dz2,$
                    zarray=zarray,paramfile=paramfile,$
                    omega_m=omega_m,omega_l=omega_l,h0=h0,omega_b=omega_b,$
                    outfile=outfile,plotfile=plotfile,$
@@ -122,13 +125,25 @@ ENDELSE
 ;MAD Fit dndz if needed
 IF (size(dndz,/type) EQ 7) THEN BEGIN
    readcol,dndz,zdist,format='D'
-   fit_dndz,zdist,zarray,dndz
+   fit_dndz,zdist,zarray,dndz,outfile='dndz_fit.txt'
 ENDIF ELSE BEGIN
    IF (n_elements(zarray) NE n_elements(dndz)) THEN $
       message,'Length of dndz and zarray don''t match!'
 ENDELSE
 
-
+;MAD Fit or read in second dndz
+IF keyword_set(dn_dz2) THEN BEGIN
+   IF (size(dn_dz2,/type) EQ 7) THEN BEGIN
+      readcol,dn_dz2,zdist2,format='D'
+      fit_dndz,zdist2,zarray,dndz2,outfile='dndz2_fit.txt'
+   ENDIF ELSE BEGIN
+      IF (n_elements(zarray) NE n_elements(dn_dz2)) THEN $
+         message,'Length of dndz2 and zarray don''t match!'
+      dndz2=dn_dz2
+   ENDELSE
+ENDIF ELSE BEGIN
+   dndz2=dndz
+ENDELSE
    
 ;MAD convert to dimensionless power spectrum, put in factors of h
 delsq=pspec.pk*(1./(2.*!dpi^2.))*pspec.k^3.
@@ -166,7 +181,7 @@ FOR i=0L,n_elements(thetarad)-1 DO BEGIN
       ;MAD Define Bessel function at each k
       J0=beselj(newk*thetarad[i]*chi[j],0,/double)
       ;MAD Integrate over k, put into array for integration over z
-      fk=(newdelsq/newk)*J0*(dndz[j]^2)*dzdchi[j]*(1./newk)
+      fk=(newdelsq/newk)*J0*(dndz[j]*dndz2[j])*dzdchi[j]*(1./newk)
       fz[j]=int_tabulated(newk,fk,/double)
    ENDFOR      
    ;MAD Integrate over z, multiply by pi
