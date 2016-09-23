@@ -108,6 +108,7 @@ IF (keyword_set(jackknife)) THEN BEGIN
                            data_fileout='data_reg.fits',rand_fileout='rand_reg.fits', $
                            data2_in=data2_in,data2_fileout='data2_reg.fits',$
                            split_file='jack_splits.txt',/figures
+         data2=mrdfits('data2_reg.fits',1)
       ENDIF ELSE BEGIN
          data=mrdfits('data_reg.fits',1)
          rand=mrdfits('rand_reg.fits',1)
@@ -128,7 +129,7 @@ ENDIF
 ;MAD Get number in each sample in double format
 n_data=double(n_elements(data))
 n_rand=double(n_elements(rand))
-IF keyword_set(data2) THEN n_data2=double(n_elements(data2))
+IF keyword_set(data2_in) THEN n_data2=double(n_elements(data2))
 
 ;MAD Set binning (5dex is the default), make bin edges, centers
 IF ~keyword_set(bins) THEN bins=5
