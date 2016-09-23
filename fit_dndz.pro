@@ -14,6 +14,7 @@
 ;  Optional Inputs:
 ;    binsize - the bin size of the histogram to fit (default 0.2)
 ;    outfile - name of file with z and the fit (for testing/checks)
+;    sigma - "tension" in the spline fit.  0-10, defaults to 1
 ;
 ;  OUTPUT:
 ;    dndz - the values of the fit at sampledz
@@ -26,11 +27,12 @@
 ;               bins - MAD (Dartmouth)
 ;     9-15-16 - Added output file option - MAD (Dartmouth)
 ;-
-PRO fit_dndz,realz,sampledz,dndz,binsize=binsize,outfile=outfile
+PRO fit_dndz,realz,sampledz,dndz,binsize=binsize,outfile=outfile,sigma=sigma
 
 ;MAD Set defaults
 IF ~keyword_set(binsize) THEN binsize=0.2
 IF ~keyword_set(outfile) THEN outfile='dndz_fit.txt'
+IF ~keyword_set(sigma) THEN sigma=1
 
 ;MAD Bin the real data
 h=histogram(realz,binsize=binsize,min=0,max=max(realz))
@@ -54,7 +56,7 @@ x=[0,x]
 h=[0,h]
 
 ;MAD Fit cubic spline, normalize
-fit=spline(x,h,sampledz)
+fit=spline(x,h,sampledz,sigma)
 fit[where((sampledz GT max(realz)) OR (sampledz LT min(realz)))]=0
 area=int_tabulated(sampledz,fit,/double)
 dndz=fit/area
