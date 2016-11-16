@@ -61,7 +61,7 @@ n_rand_tot=double(n_elements(rand))
 IF keyword_set(data2) THEN n_data2_tot=double(n_elements(data2))
 
 ;MAD Set binning (5dex is the default), make bin edges, centers
-IF ~keyword_set(bins) THEN bins=5
+IF (n_elements(bins) EQ 0) THEN bins=5
 IF (bins NE 0) THEN BEGIN
    bininfo=define_bins(bins,maxscale)
    bin_edge=bininfo.edges
@@ -70,8 +70,10 @@ ENDIF
 
 ;MAD Define big bins, if needed
 IF (bins EQ 0) THEN BEGIN
-   bin_edge=[0.2,6.,maxscale*60.]
-   bin_cent=[3.1,((6.+(maxscale*60.))/2.),(maxscale*60.)+30.]
+;   bin_edge=[0.2,6.,maxscale*60.]
+;   bin_cent=[3.1,((6.+(maxscale*60.))/2.),(maxscale*60.)+30.]
+   bin_edge=[1,10,60.]
+   bin_cent=[5.5,35,90]
 ENDIF
 
 

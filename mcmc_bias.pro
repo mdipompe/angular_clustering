@@ -161,7 +161,6 @@ PRO mcmc_bias,theta,omega,error,modtheta,modomega,bias,$
   
   bias=bias[(n_elements(bias)*trim):(n_elements(bias)-1)]
 
-  
   ;MAD determine accepted fraction
   f_accept=n_accept/samples
   bias_err=conf_int(bias,median(bias))

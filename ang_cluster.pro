@@ -132,7 +132,7 @@ n_rand=double(n_elements(rand))
 IF keyword_set(data2_in) THEN n_data2=double(n_elements(data2))
 
 ;MAD Set binning (5dex is the default), make bin edges, centers
-IF ~keyword_set(bins) THEN bins=5
+IF (n_elements(bins) EQ 0) THEN bins=5
 IF (bins NE 0) THEN BEGIN
    bininfo=define_bins(bins,maxscale)
    bin_edge=bininfo.edges
@@ -141,8 +141,10 @@ ENDIF
 
 ;MAD Define big bins, if needed
 IF (bins EQ 0) THEN BEGIN
-   bin_edge=[0.2,6.,maxscale*60.]
-   bin_cent=[3.1,((6.+(maxscale*60.))/2.),(maxscale*60.)+30.]
+;   bin_edge=[0.2,6.,maxscale*60.]
+;   bin_cent=[3.1,((6.+(maxscale*60.))/2.),(maxscale*60.)+30.]
+   bin_edge=[1,10,60.]
+   bin_cent=[5.5,35,90]
 ENDIF
 
 ;MAD If including outputs information of RR for jackknife errors,
@@ -212,8 +214,9 @@ IF (~keyword_set(data2) OR keyword_set(jackknife)) THEN BEGIN
                ENDFOR
             ENDIF
          ENDIF
-         print,'RR iteration done, random points ',strtrim(k,2),' - ',strtrim(k+step,2), $
-               ' ('+strtrim((k+step)*(1./n_elements(rand))*100.,2)+'%)'
+         print, format='("RR iteration done, random points ",i7," - ",i7," (",f8.4,"%)",a1,$)',$
+                k,k+step,(k+step)*(1./n_elements(rand))*100.,string(13B)
+         IF (k+step GE n_elements(rand)) THEN print,'ANG_CLUSTER - RR counts done...     '
          k=k+step
          IF (k+10000 LT n_elements(rand)) THEN BEGIN
             step=10000
@@ -366,8 +369,9 @@ IF (d_file EQ '') THEN BEGIN
             ENDFOR
          ENDIF
       ENDIF
-      print,'DD/DR iteration done, data points ',strtrim(k,2),' - ',strtrim(k+step,2), $
-            ' ('+strtrim((k+step)*(1./n_elements(data))*100.,2)+'%)'
+      print, format='("DD/DR iteration done, data points ",i7," - ",i7," (",f8.4,"%)",a1,$)',$
+                k,k+step,(k+step)*(1./n_elements(data))*100.,string(13B)
+      IF (k+step GE n_elements(data)) THEN print,'ANG_CLUSTER - DD/DR counts done...   '
       k=k+step
       IF (k+10000 LT n_elements(data)) THEN BEGIN
          step=10000
