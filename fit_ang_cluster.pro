@@ -26,7 +26,9 @@
 ;              file)
 ;    bz - if set, assumes you've supplied a model that includes
 ;         a b(z), and just want to renormalize it (instead of fitting
-;         b^2). In this case, output is b_0, normalization of b(z) model.
+;         b^2). In this case, output is b_0, normalization of b(z)
+;         model.
+;    silent - if set, don't print anything to screen
 ;
 ;  OPTIONAL INPUTS:
 ;    minscale - set lower limit for fitting range (default 0.0027 deg)
@@ -55,13 +57,14 @@
 ;    11-6-15 - Added b(z) option - MAD (Dartmouth)
 ;     9-6-16 - Removed skipping of negative jackknife bins in fit -
 ;              MAD (Dartmouth)
-;    12-6-16 - Added acc keyword to control speed & precision - MAD (Dartmouth)
+;    12-6-16 - Added acc keyword to control speed & precision,
+;              added silent option - MAD (Dartmouth)
 ;-
 PRO fit_ang_cluster,theta,w_theta,errors,bias,biaserr,$
                     minscale=minscale,maxscale=maxscale,$
                     fitplaws=fitplaws,fitbias=fitbias,dmfile=dmfile,$
                     plawplot=plawplot,biasplot=biasplot,filepath=filepath,$
-                    minchi2=minchi2,bz=bz,acc=acc
+                    minchi2=minchi2,bz=bz,acc=acc,silent=silent
 
 IF (n_elements(theta) EQ 0) THEN message,'Syntax - fit_ang_cluster,theta,w_theta,errors[,minscale=minscale,maxscale=maxscale,/fitplaws,/fitbias,plawplot=''plawplot.png'',biasplot=''biasplot.png'']'
 
@@ -82,7 +85,7 @@ IF ~keyword_set(acc) THEN acc=0.001
 circsym,/fill
 
 ;MAD Read in covariance matrix
-print,'fit_ang_cluster - reading in covariance matrix...'
+IF ~keyword_set(silent) THEN print,'fit_ang_cluster - reading in covariance matrix...'
 C=read_matrix(filepath+'covariance.txt')
 
 ;MAD Limit to regions of interest (set by min/max scale keywords)
@@ -96,7 +99,7 @@ C=C[*,inscale]
 ;MAD Fit power laws if keyword set
 IF keyword_set(fitplaws) THEN BEGIN
    ;MAD Fit power-law with mpfitfun to generate an initial guess
-   print,'fit_ang_cluster - getting intial power-law parameter guesses...'
+   IF ~keyword_set(silent) THEN print,'fit_ang_cluster - getting intial power-law parameter guesses...'
    guess=[10.,-1.]
    fit_plaw=mpfitfun('powerlaw',bin/60.,wtheta,errors,guess,perror=fit_plaw_errs,/quiet)
    x_plaw=findgen(100)+0.00001
@@ -111,7 +114,7 @@ IF keyword_set(fitplaws) THEN BEGIN
    d_guess_plaw=(findgen(10000.)*((max_d_plaw-min_d_plaw)/10000.))+min_d_plaw
 
    ;MAD Fit fixed slope power-law with mpfitfun for initial guess
-   print,'fit_ang_cluster - getting initial fixed-slope power-law guesses...'
+   IF ~keyword_set(silent) THEN print,'fit_ang_cluster - getting initial fixed-slope power-law guesses...'
    guess=[10.]
    fit_fixed=mpfitfun('powerlaw_fixedslope',bin/60.,wtheta,errors,guess,perror=fit_fixed_errs,/quiet)
    x_fixed=findgen(100)+0.00001
@@ -139,7 +142,7 @@ IF keyword_set(fitplaws) THEN BEGIN
    ;ENDFOR
 
    ;MAD Loop over power-law guesses to fill chi^2 matrix to fit using covariance
-   print,'fit_ang_cluster - Building power-law chi^2 matrix...'
+   IF ~keyword_set(silent) THEN print,'fit_ang_cluster - Building power-law chi^2 matrix...'
    FOR i=0L,n_elements(A_guess_plaw)-1 DO BEGIN
       FOR j=0L,n_elements(d_guess_plaw)-1 DO BEGIN
          val=A_guess_plaw[i]*((bin/60.)^d_guess_plaw[j])
@@ -152,7 +155,7 @@ IF keyword_set(fitplaws) THEN BEGIN
    ;contour,chisq_plaw,A_guess_plaw,d_guess_plaw,charsize=2,xtit='A',ytit='delta',xra=[0.,0.005],yra=[-1.6,-0.5],levels=[min(chisq_plaw),min(chisq_plaw)+0.1*min(chisq_plaw),min(chisq_plaw)+0.2*min(chisq_plaw),min(chisq_plaw)+0.3*min(chisq_plaw),min(chisq_plaw)+0.4*min(chisq_plaw),min(chisq_plaw)+0.5*min(chisq_plaw),min(chisq_plaw)+0.6*min(chisq_plaw),min(chisq_plaw)+0.7*min(chisq_plaw),min(chisq_plaw)+0.8*min(chisq_plaw),min(chisq_plaw)+0.9*min(chisq_plaw)]
 
    ;MAD Find where the power-law chi^2 value is minumum
-   print,'fit_ang_cluster - finding min chi^2 and best fit power-law params...'
+   IF ~keyword_set(silent) THEN print,'fit_ang_cluster - finding min chi^2 and best fit power-law params...'
    minchi_plaw=where(chisq_plaw EQ min(chisq_plaw))
    s=size(chisq_plaw)
    ncol=s[1]
@@ -192,7 +195,7 @@ IF keyword_set(fitplaws) THEN BEGIN
 
 
    ;MAD Loop over fixed-splope power-law guesses to fill chi^2 array
-   print,'fit_ang_cluster - Building power-law fixed chi^2 array...'
+   IF ~keyword_set(silent) THEN print,'fit_ang_cluster - Building power-law fixed chi^2 array...'
    FOR i=0L,n_elements(A_guess_fixed)-1 DO BEGIN
       val=A_guess_fixed[i]*((bin/60.)^(-1.))
       temp=(wtheta-val) # C_inv # (wtheta-val)
@@ -203,7 +206,7 @@ IF keyword_set(fitplaws) THEN BEGIN
    ;plot,A_guess_fixed,chisq_fixed,linestyle=1,xra=[0.,0.004],yra=[0,10000],xtit='A',ytit='chi^2'
 
    ;MAD Find where the fixed-slope chi^2 values is minumum, get best A value
-   print,'fit_ang_cluster - finding min chi^2 and best fit fixed power-law amplitude...'
+   IF ~keyword_set(silent) THEN print,'fit_ang_cluster - finding min chi^2 and best fit fixed power-law amplitude...'
    minchi_fixed=where(chisq_fixed EQ min(chisq_fixed))
    best_A_fixed=A_guess_fixed[minchi_fixed]
    x_covar_fixed=findgen(100)+0.00001
@@ -250,39 +253,40 @@ IF keyword_set(fitplaws) THEN BEGIN
 
 
    ;MAD Print results to screen
-   print,' '
+   IF ~keyword_set(silent) THEN BEGIN
+      print,' '
 
-   print,'Fixed slope covar fit errors are based on a delta chi^2 of ',strtrim(dchi_A_fixed,2),' (for A)'
-   print,'Power-law covar fit errors are based on a delta chi^2 of ',strtrim(dchi_A_plaw,2),' (for A)'
-   print,'Power-law covar fit errors are based on a delta chi^2 of ',strtrim(dchi_d_plaw,2),' (for delta)'
+      print,'Fixed slope covar fit errors are based on a delta chi^2 of ',strtrim(dchi_A_fixed,2),' (for A)'
+      print,'Power-law covar fit errors are based on a delta chi^2 of ',strtrim(dchi_A_plaw,2),' (for A)'
+      print,'Power-law covar fit errors are based on a delta chi^2 of ',strtrim(dchi_d_plaw,2),' (for delta)'
 
-   print,' '
+      print,' '
 
-   print,'Fits from mpfitfun ('+strtrim(minscale,2)+' - '+strtrim(maxscale,2)+' degrees):'
-   print,'Fixed slope power-law amplitude A = ',strtrim(fit_fixed[0],2),' +/- ',strtrim(fit_fixed_errs[0],2)
-   print,'Full power-law amplitude A = ',strtrim(fit_plaw[0],2),' +/- ',strtrim(fit_plaw_errs[0],2)
-   print,'Full power-law exponent delta = ',strtrim(fit_plaw[1],2),' +/- ',strtrim(fit_plaw_errs[1],2)
+      print,'Fits from mpfitfun ('+strtrim(minscale,2)+' - '+strtrim(maxscale,2)+' degrees):'
+      print,'Fixed slope power-law amplitude A = ',strtrim(fit_fixed[0],2),' +/- ',strtrim(fit_fixed_errs[0],2)
+      print,'Full power-law amplitude A = ',strtrim(fit_plaw[0],2),' +/- ',strtrim(fit_plaw_errs[0],2)
+      print,'Full power-law exponent delta = ',strtrim(fit_plaw[1],2),' +/- ',strtrim(fit_plaw_errs[1],2)
 
-   print,' '
+      print,' '
 
-   print,'Fits using covariance ('+strtrim(minscale,2)+' - '+strtrim(maxscale,2)+' degrees):'
-   print,'Fixed slope power-law amplitude A = ',strtrim(best_A_fixed[0],2),' +/- ',strtrim(A_fixed_err,2)
-   print,'Full power-law amplitude A = ',strtrim(best_A_plaw[0],2),' +/- ',strtrim(A_plaw_err,2)
-   print,'Full power-law exponent delta = ',strtrim(best_d_plaw[0],2),' +/- ',strtrim(d_plaw_err,2)
+      print,'Fits using covariance ('+strtrim(minscale,2)+' - '+strtrim(maxscale,2)+' degrees):'
+      print,'Fixed slope power-law amplitude A = ',strtrim(best_A_fixed[0],2),' +/- ',strtrim(A_fixed_err,2)
+      print,'Full power-law amplitude A = ',strtrim(best_A_plaw[0],2),' +/- ',strtrim(A_plaw_err,2)
+      print,'Full power-law exponent delta = ',strtrim(best_d_plaw[0],2),' +/- ',strtrim(d_plaw_err,2)
 
-   print,' '
+      print,' '
+   
+      ;MAD If chi^2 minimization went all the way to the edge of the input
+      ;grids, give a warning
+      IF ((best_A_fixed[0] EQ min(A_guess_fixed)) OR (best_A_fixed[0] EQ max(A_guess_fixed))) THEN $
+         print,'WARNING: Maybe didn''t explore enough parameter space for fixed-slope A!!'
+      IF ((best_A_plaw[0] EQ min(A_guess_plaw)) OR (best_A_plaw[0] EQ max(A_guess_plaw))) THEN $
+         print,'WARNING: Maybe didn''t explore enough parameter space for power-law A!!'
+      IF ((best_d_plaw[0] EQ min(d_guess_plaw)) OR (best_d_plaw[0] EQ max(d_guess_plaw))) THEN $
+         print,'WARNING: Maybe didn''t explore enough parameter space for power-law delta!!'
 
-   ;MAD If chi^2 minimization went all the way to the edge of the input
-   ;grids, give a warning
-   IF ((best_A_fixed[0] EQ min(A_guess_fixed)) OR (best_A_fixed[0] EQ max(A_guess_fixed))) THEN $
-      print,'WARNING: Maybe didn''t explore enough parameter space for fixed-slope A!!'
-   IF ((best_A_plaw[0] EQ min(A_guess_plaw)) OR (best_A_plaw[0] EQ max(A_guess_plaw))) THEN $
-      print,'WARNING: Maybe didn''t explore enough parameter space for power-law A!!'
-   IF ((best_d_plaw[0] EQ min(d_guess_plaw)) OR (best_d_plaw[0] EQ max(d_guess_plaw))) THEN $
-      print,'WARNING: Maybe didn''t explore enough parameter space for power-law delta!!'
+   ENDIF
 ENDIF
-
-
 
 IF keyword_set(fitbias) THEN BEGIN
    ;MAD read in model data
@@ -309,7 +313,7 @@ IF keyword_set(fitbias) THEN BEGIN
 ;   ENDFOR
 
    ;MAD Loop over bias values to get chi-sq using covariance...
-   print,'fit_bias - Building bias chi^2 array...'
+   IF ~keyword_set(silent) THEN print,'fit_bias - Building bias chi^2 array...'
    FOR i=0L,n_elements(b_guess)-1 DO BEGIN
       IF ~keyword_set(bz) THEN val=dmw*(b_guess[i]^2.) ELSE $
          val=dmw*(b_guess[i])
@@ -322,7 +326,7 @@ IF keyword_set(fitbias) THEN BEGIN
    ;stop
 
    ;MAD Find where the fixed-slope chi^2 values is minumum, get best bias value
-   print,'fit_bias - finding min chi^2 and best fit...'
+   IF ~keyword_set(silent) THEN print,'fit_bias - finding min chi^2 and best fit...'
    minchi=where(chisq EQ min(chisq))
    best_b=b_guess[minchi]
    y=dmw*(best_b[0]^2.)
@@ -356,33 +360,34 @@ IF keyword_set(fitbias) THEN BEGIN
    biaserr=b_err
 
    ;MAD Print results to screen
-   print,' '
+   IF ~keyword_set(silent) THEN BEGIN
+      print,' '
 
-   IF ~keyword_set(bz) THEN BEGIN
-      print,'Bias fit has chi^2 of ',strtrim(minchi2,2)
-      print,'Bias fit errors are based on a delta chi^2 of ',strtrim(dchi_b,2)
-      print,' '
-      print,'Fits using covariance ('+strtrim(minscale,2)+' - '+strtrim(maxscale,2)+' degrees):'
-      print,'Bias = ',strtrim(best_b[0],2),' +/- ',strtrim(b_err,2)
-      print,' '
-   ENDIF ELSE BEGIN
-      print,'B_0 fit has chi^2 of ',strtrim(minchi2,2)
-      print,'B_0 fit errors are based on a delta chi^2 of ',strtrim(dchi_b,2)
-      print,' '
-      print,'Fits using covariance ('+strtrim(minscale,2)+' - '+strtrim(maxscale,2)+' degrees):'
-      print,'B_0 = ',strtrim(best_b[0],2),' +/- ',strtrim(b_err,2)
-      print,' '
-   ENDELSE
-   ;MAD If chi^2 minimization went all the way to the edge of the input
-   ;grids, give a warning
-   IF ((best_b[0] EQ min(b_guess)) OR (best_b[0] EQ max(b_guess))) THEN $
-      print,'WARNING: Maybe didn''t explore enough parameter space for bias!!'
+      IF ~keyword_set(bz) THEN BEGIN
+         print,'Bias fit has chi^2 of ',strtrim(minchi2,2)
+         print,'Bias fit errors are based on a delta chi^2 of ',strtrim(dchi_b,2)
+         print,' '
+         print,'Fits using covariance ('+strtrim(minscale,2)+' - '+strtrim(maxscale,2)+' degrees):'
+         print,'Bias = ',strtrim(best_b[0],2),' +/- ',strtrim(b_err,2)
+         print,' '
+      ENDIF ELSE BEGIN
+         print,'B_0 fit has chi^2 of ',strtrim(minchi2,2)
+         print,'B_0 fit errors are based on a delta chi^2 of ',strtrim(dchi_b,2)
+         print,' '
+         print,'Fits using covariance ('+strtrim(minscale,2)+' - '+strtrim(maxscale,2)+' degrees):'
+         print,'B_0 = ',strtrim(best_b[0],2),' +/- ',strtrim(b_err,2)
+         print,' '
+      ENDELSE
+      ;MAD If chi^2 minimization went all the way to the edge of the input
+      ;grids, give a warning
+      IF ((best_b[0] EQ min(b_guess)) OR (best_b[0] EQ max(b_guess))) THEN $
+         print,'WARNING: Maybe didn''t explore enough parameter space for bias!!'
+   ENDIF
 ENDIF
-
 
 ;MAD Get finish, elapsed time
 et=systime(1)
-print,'fit_ang_cluster - Elapsed time= ',strtrim((et-st)/60,2),' min'
+IF ~keyword_set(silent) THEN print,'fit_ang_cluster - Elapsed time= ',strtrim((et-st)/60,2),' min'
 
 return
 END
