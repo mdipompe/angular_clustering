@@ -13,7 +13,7 @@
 ;  USE:
 ;    fit_ang_cluster,theta,w_theta,errors,minscale=minscale,maxscale=maxscale,$
 ;                   /fitplaws,/fitbias,dmfile='model_file.txt',$
-;                   plawplot='plawplot.png',biasplot='biasplot.png'
+;                   plawplot='plawplot.png',biasplot='biasplot.png',acc=acc
 ;
 ;  INPUTS:
 ;    theta - bin centers in angular scale
@@ -37,6 +37,8 @@
 ;             Two columns, angular scale (in deg) and w_theta
 ;    filepath - path to location of files like, covariance file.
 ;               Defaults to current directory.
+;    acc - desired accuracy for bias measurement.  Defaults to nearest
+;          0.001.  Smaller number = more precision and more run time.
 ;
 ;  OUTPUTS:
 ;    bias 
@@ -53,12 +55,13 @@
 ;    11-6-15 - Added b(z) option - MAD (Dartmouth)
 ;     9-6-16 - Removed skipping of negative jackknife bins in fit -
 ;              MAD (Dartmouth)
+;    12-6-16 - Added acc keyword to control speed & precision - MAD (Dartmouth)
 ;-
 PRO fit_ang_cluster,theta,w_theta,errors,bias,biaserr,$
                     minscale=minscale,maxscale=maxscale,$
                     fitplaws=fitplaws,fitbias=fitbias,dmfile=dmfile,$
                     plawplot=plawplot,biasplot=biasplot,filepath=filepath,$
-                    minchi2=minchi2,bz=bz
+                    minchi2=minchi2,bz=bz,acc=acc
 
 IF (n_elements(theta) EQ 0) THEN message,'Syntax - fit_ang_cluster,theta,w_theta,errors[,minscale=minscale,maxscale=maxscale,/fitplaws,/fitbias,plawplot=''plawplot.png'',biasplot=''biasplot.png'']'
 
@@ -71,6 +74,9 @@ IF ~keyword_set(maxscale) THEN maxscale=2.
 
 ;MAD Set default file path
 IF ~keyword_set(filepath) THEN filepath='./'
+
+;MAD Set default accuracy (sigfigs)
+IF ~keyword_set(acc) THEN acc=0.001
 
 ;MAD Define filled circle for plot
 circsym,/fill
@@ -287,7 +293,7 @@ IF keyword_set(fitbias) THEN BEGIN
    dmw=dmw[inscale]
 
    ;MAD Generate array of bias values
-   b_guess=(findgen(500000.)*(5./500000.)+0.4)
+   b_guess=(findgen(5./acc)*(5./(5./acc))+0.4)
    ;MAD Initialize arrays of Chi^2 values to fill; invert covariance matrix
    chisq=dblarr(n_elements(b_guess))
    C_inv=invert(C,/double)
