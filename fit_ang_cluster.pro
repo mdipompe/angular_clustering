@@ -295,7 +295,8 @@ ENDIF
 
 IF keyword_set(fitbias) THEN BEGIN
    ;MAD read in model data
-   readcol,dmfile,dmbin,dmw,format='F,D'
+   IF ~keyword_set(silent) THEN readcol,dmfile,dmbin,dmw,format='F,D' ELSE $
+      readcol,dmfile,dmbin,dmw,format='F,D',/silent
    dmbin=dmbin*60.
    inscale=where((dmbin GT minscale*60.) AND (dmbin LT maxscale*60.))
    dmbin=dmbin[inscale]
