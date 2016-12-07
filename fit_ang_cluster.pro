@@ -13,7 +13,8 @@
 ;  USE:
 ;    fit_ang_cluster,theta,w_theta,errors,minscale=minscale,maxscale=maxscale,$
 ;                   /fitplaws,/fitbias,dmfile='model_file.txt',$
-;                   plawplot='plawplot.png',biasplot='biasplot.png',acc=acc
+;                   plawplot='plawplot.png',biasplot='biasplot.png',/acc,/silent,$
+;                   /nocovar
 ;
 ;  INPUTS:
 ;    theta - bin centers in angular scale
@@ -29,6 +30,7 @@
 ;         b^2). In this case, output is b_0, normalization of b(z)
 ;         model.
 ;    silent - if set, don't print anything to screen
+;    nocovar - fit just using supplied errors, not covariance matrix
 ;
 ;  OPTIONAL INPUTS:
 ;    minscale - set lower limit for fitting range (default 0.0027 deg)
@@ -59,12 +61,13 @@
 ;              MAD (Dartmouth)
 ;    12-6-16 - Added acc keyword to control speed & precision,
 ;              added silent option - MAD (Dartmouth)
+;    12-7-16 - Added nocovar option, speed improvements - MAD (Dartmouth)
 ;-
-PRO fit_ang_cluster,theta,w_theta,errors,bias,biaserr,$
+PRO fit_ang_cluster,theta,w_theta,e_rrors,bias,biaserr,$
                     minscale=minscale,maxscale=maxscale,$
                     fitplaws=fitplaws,fitbias=fitbias,dmfile=dmfile,$
                     plawplot=plawplot,biasplot=biasplot,filepath=filepath,$
-                    minchi2=minchi2,bz=bz,acc=acc,silent=silent
+                    minchi2=minchi2,bz=bz,acc=acc,silent=silent,nocovar=nocovar
 
 IF (n_elements(theta) EQ 0) THEN message,'Syntax - fit_ang_cluster,theta,w_theta,errors[,minscale=minscale,maxscale=maxscale,/fitplaws,/fitbias,plawplot=''plawplot.png'',biasplot=''biasplot.png'']'
 
@@ -84,17 +87,20 @@ IF ~keyword_set(acc) THEN acc=0.001
 ;MAD Define filled circle for plot
 circsym,/fill
 
-;MAD Read in covariance matrix
-IF ~keyword_set(silent) THEN print,'fit_ang_cluster - reading in covariance matrix...'
-C=read_matrix(filepath+'covariance.txt')
-
 ;MAD Limit to regions of interest (set by min/max scale keywords)
 inscale=where((theta GE minscale*60.) AND (theta LE maxscale*60.))
 bin=theta[inscale]
 wtheta=w_theta[inscale]
-errors=errors[inscale]
-C=C[inscale,*]
-C=C[*,inscale]
+errors=e_rrors[inscale]
+
+;MAD Read in covariance matrix
+IF ~keyword_set(nocovar) THEN BEGIN
+   IF ~keyword_set(silent) THEN print,'fit_ang_cluster - reading in covariance matrix...'
+   C=read_matrix(filepath+'covariance.txt')
+   C=C[inscale,*]
+   C=C[*,inscale]
+   C_inv=invert(C,/double)
+ENDIF
 
 ;MAD Fit power laws if keyword set
 IF keyword_set(fitplaws) THEN BEGIN
@@ -125,32 +131,31 @@ IF keyword_set(fitplaws) THEN BEGIN
    max_A_fixed=fit_fixed[0]+(1.5*fit_fixed[0])
    A_guess_fixed=(findgen(20000.)*((max_A_fixed-min_A_fixed)/20000.))+min_A_fixed
 
-   ;MAD Initialize arrays of Chi^2 values to fill; invert covariance matrix
+   ;MAD Initialize arrays of Chi^2 values to fill
    chisq_plaw=dblarr(n_elements(A_guess_plaw),n_elements(d_guess_plaw))
    chisq_fixed=dblarr(n_elements(A_guess_fixed))
-   C_inv=invert(C,/double)
 
-   ;;MAD Fit using just the variance terms of the covariance matrix
-   ;FOR i=0L,n_elements(A_guess_plaw)-1 DO BEGIN
-   ; FOR j=0L,n_elements(d_guess_plaw)-1 DO BEGIN
-   ;  FOR k=0L,n_elements(bin)-1 DO BEGIN
-   ;   val=A_guess_plaw[i]*((bin[k]/60.)^d_guess_plaw[j])
-   ;   temp=(wtheta[k]-val) * C_inv[k,k] * (wtheta[k]-val)
-   ;   chisq_plaw[i,j]=chisq_plaw[i,j]+temp
-   ;  ENDFOR
-   ; ENDFOR
-   ;ENDFOR
-
-   ;MAD Loop over power-law guesses to fill chi^2 matrix to fit using covariance
    IF ~keyword_set(silent) THEN print,'fit_ang_cluster - Building power-law chi^2 matrix...'
-   FOR i=0L,n_elements(A_guess_plaw)-1 DO BEGIN
-      FOR j=0L,n_elements(d_guess_plaw)-1 DO BEGIN
-         val=A_guess_plaw[i]*((bin/60.)^d_guess_plaw[j])
-         temp=(wtheta-val) # C_inv # (wtheta-val)
-         chisq_plaw[i,j]=chisq_plaw[i,j]+temp
+   IF keyword_set(nocovar) THEN BEGIN
+      ;MAD Get chi^2 using just the errors
+      FOR i=0L,n_elements(A_guess_plaw)-1 DO BEGIN
+         FOR j=0L,n_elements(d_guess_plaw)-1 DO BEGIN
+            val=A_guess_plaw[i]*((bin/60.)^d_guess_plaw[j])
+            temp=(wtheta-val) * (1./(errors^2.)) * (wtheta-val)
+            chisq_plaw[i,j]=chisq_plaw[i,j]+total(temp)
+         ENDFOR
       ENDFOR
-   ENDFOR
-
+   ENDIF ELSE BEGIN
+      ;MAD Loop over power-law guesses to fill chi^2 matrix to fit using covariance
+      FOR i=0L,n_elements(A_guess_plaw)-1 DO BEGIN
+         FOR j=0L,n_elements(d_guess_plaw)-1 DO BEGIN
+            val=A_guess_plaw[i]*((bin/60.)^d_guess_plaw[j])
+            temp=(wtheta-val) # C_inv # (wtheta-val)
+            chisq_plaw[i,j]=chisq_plaw[i,j]+temp
+         ENDFOR
+      ENDFOR
+   ENDELSE
+   
    ;MAD Plot the chi^2 countours (at intervals of min(chi^2) + 10%)
    ;contour,chisq_plaw,A_guess_plaw,d_guess_plaw,charsize=2,xtit='A',ytit='delta',xra=[0.,0.005],yra=[-1.6,-0.5],levels=[min(chisq_plaw),min(chisq_plaw)+0.1*min(chisq_plaw),min(chisq_plaw)+0.2*min(chisq_plaw),min(chisq_plaw)+0.3*min(chisq_plaw),min(chisq_plaw)+0.4*min(chisq_plaw),min(chisq_plaw)+0.5*min(chisq_plaw),min(chisq_plaw)+0.6*min(chisq_plaw),min(chisq_plaw)+0.7*min(chisq_plaw),min(chisq_plaw)+0.8*min(chisq_plaw),min(chisq_plaw)+0.9*min(chisq_plaw)]
 
@@ -298,29 +303,27 @@ IF keyword_set(fitbias) THEN BEGIN
 
    ;MAD Generate array of bias values
    b_guess=(findgen(5./acc)*(5./(5./acc))+0.4)
-   ;MAD Initialize arrays of Chi^2 values to fill; invert covariance matrix
+   ;MAD Initialize arrays of Chi^2 values to fill
    chisq=dblarr(n_elements(b_guess))
-   C_inv=invert(C,/double)
 
-   ;MAD Loop over bias values to get chi-sq using just variance...
-;   print,'fit_bias - Building bias chi^2 array...'
-;   FOR i=0L,n_elements(b_guess)-1 DO BEGIN
-;    FOR k=0L,n_elements(bin)-1 DO BEGIN
-;     val=dmw[k]*(b_guess[i]^2.)
-;     temp=(wtheta[k]-val) * C_inv[k,k] * (wtheta[k]-val)
-;     chisq[i]=chisq[i]+temp
-;    ENDFOR
-;   ENDFOR
-
-   ;MAD Loop over bias values to get chi-sq using covariance...
    IF ~keyword_set(silent) THEN print,'fit_bias - Building bias chi^2 array...'
-   FOR i=0L,n_elements(b_guess)-1 DO BEGIN
-      IF ~keyword_set(bz) THEN val=dmw*(b_guess[i]^2.) ELSE $
-         val=dmw*(b_guess[i])
-      temp=(wtheta-val) # C_inv # (wtheta-val)
-      chisq[i]=chisq[i]+temp
-   ENDFOR
-
+   IF keyword_set(nocovar) THEN BEGIN
+      ;MAD Loop over bias values to get chi-sq using just variance...
+      FOR i=0L,n_elements(b_guess)-1 DO BEGIN
+         val=dmw*(b_guess[i]^2.)
+         temp=(wtheta-val) * (1./(errors^2.)) * (wtheta-val)
+         chisq[i]=chisq[i]+total(temp)
+      ENDFOR
+   ENDIF ELSE BEGIN
+      ;MAD Loop over bias values to get chi-sq using covariance...
+      FOR i=0L,n_elements(b_guess)-1 DO BEGIN
+         IF ~keyword_set(bz) THEN val=dmw*(b_guess[i]^2.) ELSE $
+            val=dmw*(b_guess[i])
+         temp=(wtheta-val) # C_inv # (wtheta-val)
+         chisq[i]=chisq[i]+temp
+      ENDFOR
+   ENDELSE
+   
    ;MAD Plot the chi^2 values vs A
    ;plot,b_guess,chisq,linestyle=1,xra=[0.8,7],yra=[0,500],xtit='bias',ytit='chi^2'
    ;stop
