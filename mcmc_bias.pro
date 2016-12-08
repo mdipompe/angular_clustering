@@ -4,8 +4,9 @@
 ;
 ;  PURPOSE:
 ;    Generate posterior probability distribution of bias values from
-;    angular clustering results.  Uses Metropolis-Hastings MCMC, with
-;    a Gaussian proposal mechanism.  Also assumes Gaussian prior on bias.
+;    angular clustering results.  Uses Metropolis MCMC, with
+;    a uniform proposal distribution.  Also assumes uniform prior on
+;    bias, between 0 and 5.  Can also use Gaussians
 ;
 ;  USE:
 ;    mcmc_bias,theta,omega_theta,omega_error,mod_theta,mod_omega,bias,$
@@ -25,7 +26,7 @@
 ;    maxscale - maximim scale of interest (degrees)
 ;    b_prior_mean - mean of the Gaussian prior on bias (default = 2.5)
 ;    b_prior_sd - standard deviation of Gaussian prior on bias
-;                 (default = 2.)
+;                 (default = 2., requires /gaussian keyword)
 ;    prop_width - standard deviation of distribution from which
 ;                 proposed bias steps are drawn.  Should tune until
 ;                 accepted fraction is ~0.5
@@ -36,7 +37,10 @@
 ;    figname - string name for an output figure of results
 ;    trim - fraction of samples to trim off the start of the chain
 ;           (default 0.05)
-;    
+;
+;  KEYWORDS:
+;    gaussian - use Gaussian proposal and priors, rather than uniform
+;
 ;  OUTPUT:
 ;    bias - the posterior distribution of bias values
 ;    f_accept - set to variable to return accepted fraction of
@@ -46,6 +50,8 @@
 ;
 ;  HISTORY:
 ;    9-12-16 - Written - MAD (Dartmouth)
+;    12-8-16 - Updated default prior to be uniform, added gaussian
+;              keyword to allow optional gaussian prior - MAD (Dartmouth)
 ;-
 PRO mcmc_bias,theta,omega,error,modtheta,modomega,bias,$
               covariance=covariance,$
@@ -53,14 +59,14 @@ PRO mcmc_bias,theta,omega,error,modtheta,modomega,bias,$
               prop_width=prop_width,samples=samples,$
               propseed=propseed,acceptseed=acceptseed,$
               minscale=minscale,maxscale=maxscale,f_accept=f_accept,$
-              figname=figname,trim=trim
+              figname=figname,trim=trim,gaussian=gaussian
 
   ;MAD Start timer
   st=timer()
   
   ;MAD Set defaults
-  IF ~keyword_set(b_prior_mean) THEN b_prior_mean=25
-  IF ~keyword_set(b_prior_sd) THEN b_prior_sd=1.5
+  IF ~keyword_set(b_prior_mean) THEN b_prior_mean=2.5
+  IF (~keyword_set(b_prior_sd) AND keyword_set(gaussian)) THEN b_prior_sd=1.5
   IF ~keyword_set(samples) THEN samples=10000.
   IF ~keyword_set(propseed) THEN propseed=154
   IF ~keyword_set(acceptseed) THEN acceptseed=918
@@ -116,7 +122,9 @@ PRO mcmc_bias,theta,omega,error,modtheta,modomega,bias,$
   FOR i=0L,samples-1 DO BEGIN
      counter,i,samples
      ;MAD Get proposed new bias
-     b_proposal=(randomn(propseed)*prop_width)+b_current
+     IF keyword_set(gaussian) THEN $
+        b_proposal=(randomn(propseed)*prop_width)+b_current ELSE $
+           b_proposal=((randomu(propseed)*prop_width)-(prop_width/2.))+b_current
 
      ;MAD Calculate likelihoods
      IF keyword_set(covariance) THEN BEGIN
@@ -141,9 +149,15 @@ PRO mcmc_bias,theta,omega,error,modtheta,modomega,bias,$
      ENDELSE
         
      ;MAD Get prior probability for current and proposed values
-     prior_current=norm_pdf(b_current,mu=b_prior_mean,sd=b_prior_sd)
-     prior_proposal=norm_pdf(b_proposal,mu=b_prior_mean,sd=b_prior_sd)
-
+     IF keyword_set(gaussian) THEN BEGIN
+        prior_current=norm_pdf(b_current,mu=b_prior_mean,sd=b_prior_sd)
+        prior_proposal=norm_pdf(b_proposal,mu=b_prior_mean,sd=b_prior_sd)
+     ENDIF ELSE BEGIN
+        IF (b_current GE 0 OR b_current LE 4) THEN prior_current=1 ELSE prior_current=0
+        IF (b_proposal GE 0 OR b_proposal LE 4) THEN prior_proposal=1 ELSE prior_proposal=0
+     ENDELSE
+     
+        
      ;MAD posterior probability (likelihood * prior)
      p_current=like_current*prior_current
      p_proposal=like_proposal*prior_proposal
