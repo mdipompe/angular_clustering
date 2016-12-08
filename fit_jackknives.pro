@@ -63,33 +63,32 @@ PRO fit_jackknives,theta,w_theta,b,n=n,minscale=minscale,maxscale=maxscale,$
   IF (n_elements(n) EQ 0) THEN n=1000
   IF (n_elements(n) EQ 0) THEN acc=1e-3
   IF (n_elements(seed) EQ 0) THEN seed=818
-  IF (n_elements(datafile) EQ 0) THEN datafile='data_reg.fits'
-  IF (n_elements(randfile) EQ 0) THEN datafile='rand_reg.fits'
-  IF (n_elements(jackfile) EQ 0) THEN jackfile='jackknife_results.txt'
-  IF (n_elements(dcountfile) EQ 0) THEN dcountfile='DD_DR.txt'
-  IF (n_elements(rcountfile) EQ 0) THEN rcountfile='RR.txt'
-  IF (n_elements(rregfile) EQ 0) THEN rregfile='rr_reg.txt'
   IF (n_elements(path) EQ 0) THEN path='./'
+  IF (n_elements(datafile) EQ 0) THEN datafile=path+'data_reg.fits'
+  IF (n_elements(randfile) EQ 0) THEN datafile=path+'rand_reg.fits'
+  IF (n_elements(jackfile) EQ 0) THEN jackfile=path+'jackknife_results.txt'
+  IF (n_elements(dcountfile) EQ 0) THEN dcountfile=path+'DD_DR.txt'
+  IF (n_elements(rcountfile) EQ 0) THEN rcountfile=path+'RR.txt'
+  IF (n_elements(rregfile) EQ 0) THEN rregfile=path+'rr_reg.txt'
 
   ;MAD read in necessary data, convert as necessary
-  data=mrdfits(path+datafile,1)
-  IF (n_elements(data2file) NE 0) THEN data2=mrdfits(path+data2file,1)
-  rand=mrdfits(path+randfile,1)
-  readcol,path+jackfile,thall,wall,pix,format='D'
-  readcol,path+resultfile,th,wfull,errs,format='D'
-  readcol,path+dcountfile,dd,format='D',numline=n_elements(th)
+  data=mrdfits(datafile,1)
+  IF (n_elements(data2file) NE 0) THEN data2=mrdfits(data2file,1)
+  rand=mrdfits(randfile,1)
+  readcol,jackfile,thall,wall,pix,format='D'
+  readcol,dcountfile,dd,format='D',numline=n_elements(theta)
   IF (n_elements(data2) NE 0) THEN dd=dd*n_elements(data)*n_elements(data2) ELSE $
      dd=dd*(n_elements(data)^2.)
-  readcol,path+rcountfile,rr,format='D',numline=n_elements(th)
+  readcol,rcountfile,rr,format='D',numline=n_elements(theta)
   rr=rr*(n_elements(rand)^2.)
-  rrreg=read_matrix(path+rregfile)
+  rrreg=read_matrix(rregfile)
 
   ;MAD Set default scales (full range)
-  IF (n_elements(minscale) EQ 0) THEN minscale=min(th)/60.
-  IF (n_elements(maxscale) EQ 0) THEN minscale=max(th)/60.
+  IF (n_elements(minscale) EQ 0) THEN minscale=min(theta)/60.
+  IF (n_elements(maxscale) EQ 0) THEN minscale=max(theta)/60.
 
   ;MAD Calculate Poisson errors
-  err=sqrt((2.*(1.+wfull)^2.)/dd)
+  err=sqrt((2.*(1.+w_theta)^2.)/dd)
 
   ;MAD Find uniqe angular bins
   th=thall[rem_dup(thall)]
@@ -103,10 +102,10 @@ PRO fit_jackknives,theta,w_theta,b,n=n,minscale=minscale,maxscale=maxscale,$
      counter,i,n
      w=dblarr(n_elements(th))
      ;MAD pick a w for each bin randomly from jackknives
-     FOR j=10,n_elements(th)-1 DO BEGIN
+     FOR j=0,n_elements(th)-1 DO BEGIN
         xx=where(thall EQ th[j])
         ;Have to shift to 0, widen distribution, shift back
-        ws=((wall[xx]-wfull[j])/(sqrt(rrreg[j,*]/rr[j])))+wfull[j]
+        ws=((wall[xx]-w_theta[j])/(sqrt(rrreg[j,*]/rr[j])))+w_theta[j]
         indx=floor(randomu(seed)*max(pix))
         w[j]=ws[indx]
      ENDFOR
