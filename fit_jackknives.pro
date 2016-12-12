@@ -54,6 +54,7 @@ PRO fit_jackknives,theta,w_theta,b,n=n,minscale=minscale,maxscale=maxscale,$
                    dmfile=dmfile,$
                    randfile=randfile,jackfile=jackfile,$
                    dcountfile=dcountfile,$
+                   dregfile=dregfile,$
                    rcountfile=rcountfile,rregfile=rregfile,$
                    path=path,acc=acc,outfile=outfile,seed=seed
   ;MAD Start timer
@@ -68,6 +69,7 @@ PRO fit_jackknives,theta,w_theta,b,n=n,minscale=minscale,maxscale=maxscale,$
   IF (n_elements(randfile) EQ 0) THEN datafile=path+'rand_reg.fits'
   IF (n_elements(jackfile) EQ 0) THEN jackfile=path+'jackknife_results.txt'
   IF (n_elements(dcountfile) EQ 0) THEN dcountfile=path+'DD_DR.txt'
+  IF (n_elements(dregfile) EQ 0) THEN dregfile=path+'dd_reg.txt'
   IF (n_elements(rcountfile) EQ 0) THEN rcountfile=path+'RR.txt'
   IF (n_elements(rregfile) EQ 0) THEN rregfile=path+'rr_reg.txt'
 
@@ -79,18 +81,17 @@ PRO fit_jackknives,theta,w_theta,b,n=n,minscale=minscale,maxscale=maxscale,$
   readcol,dcountfile,dd,format='D',numline=n_elements(theta)
   IF (n_elements(data2) NE 0) THEN dd=dd*n_elements(data)*n_elements(data2) ELSE $
      dd=dd*(n_elements(data)^2.)
+  ddreg=read_matrix(dregfile)
   readcol,rcountfile,rr,format='D',numline=n_elements(theta)
   rr=rr*(n_elements(rand)^2.)
   rrreg=read_matrix(rregfile)
 
+  
   ;MAD Set default scales (full range)
   IF (n_elements(minscale) EQ 0) THEN minscale=min(theta)/60.
   IF (n_elements(maxscale) EQ 0) THEN minscale=max(theta)/60.
 
-  ;MAD Calculate Poisson errors
-  err=sqrt((2.*(1.+w_theta)^2.)/dd)
-
-  ;MAD Find uniqe angular bins
+  ;MAD Find unique angular bins
   th=thall[rem_dup(thall)]
 
   ;Initialize outputs
@@ -101,15 +102,17 @@ PRO fit_jackknives,theta,w_theta,b,n=n,minscale=minscale,maxscale=maxscale,$
   FOR i=0,n-1 DO BEGIN
      counter,i,n
      w=dblarr(n_elements(th))
+     err=dblarr(n_elements(th))
      ;MAD pick a w for each bin randomly from jackknives
      FOR j=0,n_elements(th)-1 DO BEGIN
         xx=where(thall EQ th[j])
         ;Have to shift to 0, widen distribution, shift back
-        ws=((wall[xx]-w_theta[j])/(sqrt(rrreg[j,*]/rr[j])))+w_theta[j]
+        ws=((wall[xx]-w_theta[j])*sqrt(total((rr[j]-rrreg[j,*])/rr[j])))+w_theta[j]
         indx=floor(randomu(seed)*max(pix))
         w[j]=ws[indx]
+        ;MAD Get Poisson error for this point
+        err[j]=sqrt((2.*(1+w[j])^2.)/(dd[j]-ddreg[j,indx]))
      ENDFOR
-
      ;MAD Fit random iteration
      fit_ang_cluster,th,w,err,bias,bias_err,minscale=minscale,maxscale=maxscale,/fitbias,$
                      dmfile=dmfile,acc=acc,/silent,/nocovar
