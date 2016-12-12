@@ -155,118 +155,114 @@ IF (keyword_set(jackknife)) THEN BEGIN
    dd_regions=dblarr(max(rand.reg),n_elements(bin_cent))
 ENDIF
 
-;MAD Look for file of RR counts done previously (these still needed
-;even in cross correlation to properly normalize the jackknife, if
-;jackknife set)
-IF (~keyword_set(data2) OR keyword_set(jackknife)) THEN BEGIN
-   rr_file=file_search('RR.txt')
-   rr_reg_file=file_search('rr_reg.txt')
-   ;MAD If RR counts haven't been done, do them
-   ;MAD (This all looks very messy, but most is just careful bookkeeping
-   ;MAD to 1: Break it up into steps to speed things up, 2: to make it
-   ;MAD easier to rerun if needed, and 3: to make the jackknife error
-   ;MAD SUPER fast!!)
-   IF (rr_file EQ '') THEN BEGIN
-      ;MAD Loop over random sample in pieces to calculate RR
-      print,'Ang_cluster - starting loop for RR counts...'
-      h_rr=0.D
-      k=long(0)
-      step=10000.
-      WHILE (k LT n_elements(rand)) DO BEGIN
-         temprand=rand[k:k+step-1]
-         spherematch,rand.ra,rand.dec,temprand.ra,temprand.dec,maxscale,m2_rr,m1_rr,sep_rr,maxmatch=0
-         sep_rr=sep_rr*60.
-         xx=where(sep_rr GE min(bin_edge))
-         ;Only continue if there are separations > the minumum bin limit
-         IF (xx[0] NE -1) THEN BEGIN
-            sep_rr=sep_rr[xx]
-            m1_rr=m1_rr[xx]
-            m2_rr=m2_rr[xx]
-            rebinned=value_locate(bin_edge,sep_rr)
-            temp_rr=double(histogram(rebinned,binsize=1,min=0,max=n_elements(bin_edge)-1))
-            temp_rr=temp_rr*(1./(n_rand*n_rand))
-            h_rr=h_rr+temp_rr
-            ;If error keyword set, find pixel each pair member lives in
-            IF (keyword_set(jackknife)) THEN BEGIN
-               FOR v=0L,n_elements(bin_edge)-1 DO BEGIN
-                  xx=where(rebinned EQ v)
-                  IF (xx[0] NE -1) THEN BEGIN
-                     trand1=[temprand[m1_rr[xx]].reg]
-                     trand2=[rand[m2_rr[xx]].reg]
-                     yy=where(trand1 EQ trand2)
-                     zz=where(trand1 NE trand2)
-                     IF ((zz[0] NE -1) AND (yy[0] NE -1)) THEN BEGIN
-                        h1=double(histogram(trand1[zz],binsize=1,min=1,max=max(rand.reg)))
-                        h2=double(histogram(trand2[zz],binsize=1,min=1,max=max(rand.reg)))
-                        h3=double(histogram(trand1[yy],binsize=1,min=1,max=max(rand.reg)))
-                        rr_regions[*,v]=rr_regions[*,v]+h1+h2+h3
-                     ENDIF 
-                     IF ((yy[0] NE -1) AND (zz[0] EQ -1)) THEN BEGIN
-                        h3=double(histogram(trand1[yy],binsize=1,min=1,max=max(rand.reg)))
-                        rr_regions[*,v]=rr_regions[*,v]+h3
-                     ENDIF
-                     IF ((zz[0] NE -1) AND (yy[0] EQ -1)) THEN BEGIN
-                        h1=double(histogram(trand1[zz],binsize=1,min=1,max=max(rand.reg)))
-                        h2=double(histogram(trand2[zz],binsize=1,min=1,max=max(rand.reg)))
-                        rr_regions[*,v]=rr_regions[*,v]+h1+h2
-                     ENDIF
+;MAD Look for file of RR counts done previously
+rr_file=file_search('RR.txt')
+rr_reg_file=file_search('rr_reg.txt')
+;MAD If RR counts haven't been done, do them
+;MAD (This all looks very messy, but most is just careful bookkeeping
+;MAD to 1: Break it up into steps to speed things up, 2: to make it
+;MAD easier to rerun if needed, and 3: to make the jackknife error
+;MAD SUPER fast!!)
+IF (rr_file EQ '') THEN BEGIN
+   ;MAD Loop over random sample in pieces to calculate RR
+   print,'Ang_cluster - starting loop for RR counts...'
+   h_rr=0.D
+   k=long(0)
+   step=10000.
+   WHILE (k LT n_elements(rand)) DO BEGIN
+      temprand=rand[k:k+step-1]
+      spherematch,rand.ra,rand.dec,temprand.ra,temprand.dec,maxscale,m2_rr,m1_rr,sep_rr,maxmatch=0
+      sep_rr=sep_rr*60.
+      xx=where(sep_rr GE min(bin_edge))
+      ;Only continue if there are separations > the minumum bin limit
+      IF (xx[0] NE -1) THEN BEGIN
+         sep_rr=sep_rr[xx]
+         m1_rr=m1_rr[xx]
+         m2_rr=m2_rr[xx]
+         rebinned=value_locate(bin_edge,sep_rr)
+         temp_rr=double(histogram(rebinned,binsize=1,min=0,max=n_elements(bin_edge)-1))
+         temp_rr=temp_rr*(1./(n_rand*n_rand))
+         h_rr=h_rr+temp_rr
+         ;If error keyword set, find pixel each pair member lives in
+         IF (keyword_set(jackknife)) THEN BEGIN
+            FOR v=0L,n_elements(bin_edge)-1 DO BEGIN
+               xx=where(rebinned EQ v)
+               IF (xx[0] NE -1) THEN BEGIN
+                  trand1=[temprand[m1_rr[xx]].reg]
+                  trand2=[rand[m2_rr[xx]].reg]
+                  yy=where(trand1 EQ trand2)
+                  zz=where(trand1 NE trand2)
+                  IF ((zz[0] NE -1) AND (yy[0] NE -1)) THEN BEGIN
+                     h1=double(histogram(trand1[zz],binsize=1,min=1,max=max(rand.reg)))
+                     h2=double(histogram(trand2[zz],binsize=1,min=1,max=max(rand.reg)))
+                     h3=double(histogram(trand1[yy],binsize=1,min=1,max=max(rand.reg)))
+                     rr_regions[*,v]=rr_regions[*,v]+h1+h2+h3
+                  ENDIF 
+                  IF ((yy[0] NE -1) AND (zz[0] EQ -1)) THEN BEGIN
+                     h3=double(histogram(trand1[yy],binsize=1,min=1,max=max(rand.reg)))
+                     rr_regions[*,v]=rr_regions[*,v]+h3
                   ENDIF
-               ENDFOR
-            ENDIF
+                  IF ((zz[0] NE -1) AND (yy[0] EQ -1)) THEN BEGIN
+                     h1=double(histogram(trand1[zz],binsize=1,min=1,max=max(rand.reg)))
+                     h2=double(histogram(trand2[zz],binsize=1,min=1,max=max(rand.reg)))
+                     rr_regions[*,v]=rr_regions[*,v]+h1+h2
+                  ENDIF
+               ENDIF
+            ENDFOR
          ENDIF
-         print, format='("RR iteration done, random points ",i7," - ",i7," (",f8.4,"%)",a1,$)',$
-                k,k+step,(k+step)*(1./n_elements(rand))*100.,string(13B)
-         IF (k+step GE n_elements(rand)) THEN print,'ANG_CLUSTER - RR counts done...     '
-         k=k+step
-         IF (k+10000 LT n_elements(rand)) THEN BEGIN
-            step=10000
+      ENDIF
+      print, format='("RR iteration done, random points ",i7," - ",i7," (",f8.4,"%)",a1,$)',$
+             k,k+step,(k+step)*(1./n_elements(rand))*100.,string(13B)
+      IF (k+step GE n_elements(rand)) THEN print,'ANG_CLUSTER - RR counts done...     '
+      k=k+step
+      IF (k+10000 LT n_elements(rand)) THEN BEGIN
+         step=10000
+      ENDIF ELSE BEGIN
+         IF (k+1000 LT n_elements(rand)) THEN BEGIN
+            step=1000
          ENDIF ELSE BEGIN
-            IF (k+1000 LT n_elements(rand)) THEN BEGIN
-               step=1000
+            IF (k+100 LT n_elements(rand)) THEN BEGIN
+               step=100
             ENDIF ELSE BEGIN
-               IF (k+100 LT n_elements(rand)) THEN BEGIN
-                  step=100
+               IF (k+10 LT n_elements(rand)) THEN BEGIN
+                  step=10
                ENDIF ELSE BEGIN
-                  IF (k+10 LT n_elements(rand)) THEN BEGIN
-                     step=10
-                  ENDIF ELSE BEGIN
-                     step=1
-                  ENDELSE
+                  step=1
                ENDELSE
             ENDELSE
          ENDELSE
-      ENDWHILE
+      ENDELSE
+   ENDWHILE
 
-      ;MAD Write out RR counts text file
-      openw,lun,'RR.txt',/get_lun
-      FOR i=0L,n_elements(h_rr)-1 DO BEGIN
-         printf,lun,h_rr[i],format='(D)'
+   ;MAD Write out RR counts text file
+   openw,lun,'RR.txt',/get_lun
+   FOR i=0L,n_elements(h_rr)-1 DO BEGIN
+      printf,lun,h_rr[i],format='(D)'
+   ENDFOR
+   close,lun
+   
+;MAD If RR counts have already been done, read them in
+ENDIF ELSE BEGIN
+   print,'Ang_cluster - reading in previous RR counts file...'
+   readcol,rr_file[0],h_rr,format='D'
+ENDELSE
+
+;MAD If doing errors, then write out RR file for those
+IF (keyword_set(jackknife)) THEN BEGIN
+   IF (rr_reg_file EQ '') THEN BEGIN
+      print,'Ang_cluster - writing out RR counts per region...'
+      openw,lun,'rr_reg.txt',/get_lun
+      FOR w=0L,max(rand.reg)-1 DO BEGIN
+         xx=where(finite(rr_regions[w,*]) EQ 0,cnt)
+         IF (cnt NE 0) THEN rr_regions[w,xx] = -9999
+         fmtstring='('
+         FOR l=0L,n_elements(bin_cent)-2 DO BEGIN
+            fmtstring=fmtstring+'E,1x,'
+         ENDFOR
+         fmtstring=fmtstring+'E)'
+         printf,lun,rr_regions[w,*],format=fmtstring
       ENDFOR
       close,lun
-
-   ;MAD If RR counts have already been done, read them in
-   ENDIF ELSE BEGIN
-      print,'Ang_cluster - reading in previous RR counts file...'
-      readcol,rr_file[0],h_rr,format='D'
-   ENDELSE
-
-   ;MAD If doing errors, then write out RR file for those
-   IF (keyword_set(jackknife)) THEN BEGIN
-      IF (rr_reg_file EQ '') THEN BEGIN
-         print,'Ang_cluster - writing out RR counts per region...'
-         openw,lun,'rr_reg.txt',/get_lun
-         FOR w=0L,max(rand.reg)-1 DO BEGIN
-            xx=where(finite(rr_regions[w,*]) EQ 0,cnt)
-            IF (cnt NE 0) THEN rr_regions[w,xx] = -9999
-            fmtstring='('
-            FOR l=0L,n_elements(bin_cent)-2 DO BEGIN
-               fmtstring=fmtstring+'E,1x,'
-            ENDFOR
-            fmtstring=fmtstring+'E)'
-            printf,lun,rr_regions[w,*],format=fmtstring
-         ENDFOR
-         close,lun
-      ENDIF
    ENDIF
 ENDIF
 
@@ -442,10 +438,7 @@ ENDIF
 
 print,'Ang_cluster - calculating auto/cross-correlation, trimming bad data...'
 ;MAD Calculate auto/cross-correlation (Landy & Szalay 1993)
-IF ~keyword_set(data2) THEN $
-   w_theta=(1./h_rr)*(h_dd-(2.*h_dr)+h_rr) ELSE $
-;      w_theta=(h_dd/h_dr)-1.
-               w_theta=(1./h_rr)*(h_dd-(2.*h_dr)+h_rr)
+w_theta=(1./h_rr)*(h_dd-(2.*h_dr)+h_rr) ELSE $
 theta=bin_cent
 
 ;If the scale of interest is larger than the maximum edge of

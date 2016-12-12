@@ -147,10 +147,8 @@ FOR i=1L,max(rand.reg) DO BEGIN
    h_dr=h_dr*(1./(n_data*n_rand))
 
    ;MAD Calculate autocorrelation
-   IF ~keyword_set(data2) THEN $
-      w_theta=(1./h_rr)*(h_dd-(2.*h_dr)+h_rr) ELSE $
-;         w_theta=(h_dd/h_dr)-1.
-                w_theta=(1./h_rr)*(h_dd-(2.*h_dr)+h_rr)
+   w_theta=(1./h_rr)*(h_dd-(2.*h_dr)+h_rr) ELSE $
+
    ;If the scale of interest is slightly larger than the maximum edge of
    ;the bins, the last value is nonsense
    IF (maxscale*60. GT max(bin_edge)) THEN BEGIN
