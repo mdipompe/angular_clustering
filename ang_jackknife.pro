@@ -147,7 +147,7 @@ FOR i=1L,max(rand.reg) DO BEGIN
    h_dr=h_dr*(1./(n_data*n_rand))
 
    ;MAD Calculate autocorrelation
-   w_theta=(1./h_rr)*(h_dd-(2.*h_dr)+h_rr) ELSE $
+   w_theta=(1./h_rr)*(h_dd-(2.*h_dr)+h_rr)
 
    ;If the scale of interest is slightly larger than the maximum edge of
    ;the bins, the last value is nonsense

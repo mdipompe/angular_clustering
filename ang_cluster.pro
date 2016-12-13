@@ -211,7 +211,7 @@ IF (rr_file EQ '') THEN BEGIN
             ENDFOR
          ENDIF
       ENDIF
-      print, format='("RR iteration done, random points ",i7," - ",i7," (",f8.4,"%)",a1,$)',$
+      print, format='("RR iteration done, random points ",i8," - ",i8," (",f8.4,"%)",a1,$)',$
              k,k+step,(k+step)*(1./n_elements(rand))*100.,string(13B)
       IF (k+step GE n_elements(rand)) THEN print,'ANG_CLUSTER - RR counts done...     '
       k=k+step
@@ -365,7 +365,7 @@ IF (d_file EQ '') THEN BEGIN
             ENDFOR
          ENDIF
       ENDIF
-      print, format='("DD/DR iteration done, data points ",i7," - ",i7," (",f8.4,"%)",a1,$)',$
+      print, format='("DD/DR iteration done, data points ",i8," - ",i8," (",f8.4,"%)",a1,$)',$
                 k,k+step,(k+step)*(1./n_elements(data))*100.,string(13B)
       IF (k+step GE n_elements(data)) THEN print,'ANG_CLUSTER - DD/DR counts done...   '
       k=k+step
@@ -438,7 +438,7 @@ ENDIF
 
 print,'Ang_cluster - calculating auto/cross-correlation, trimming bad data...'
 ;MAD Calculate auto/cross-correlation (Landy & Szalay 1993)
-w_theta=(1./h_rr)*(h_dd-(2.*h_dr)+h_rr) ELSE $
+w_theta=(1./h_rr)*(h_dd-(2.*h_dr)+h_rr)
 theta=bin_cent
 
 ;If the scale of interest is larger than the maximum edge of
