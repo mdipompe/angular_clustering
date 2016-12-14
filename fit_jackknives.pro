@@ -53,10 +53,13 @@ PRO fit_jackknives,theta,w_theta,b,n=n,minscale=minscale,maxscale=maxscale,$
                    data2file=data2file,$
                    dmfile=dmfile,$
                    randfile=randfile,jackfile=jackfile,$
+                   covfile=covfile,$
                    dcountfile=dcountfile,$
                    dregfile=dregfile,$
                    rcountfile=rcountfile,rregfile=rregfile,$
-                   path=path,acc=acc,outfile=outfile,seed=seed
+                   path=path,acc=acc,outfile=outfile,seed=seed,$
+                   poisson=poisson
+  
   ;MAD Start timer
   st=timer()
 
@@ -72,6 +75,7 @@ PRO fit_jackknives,theta,w_theta,b,n=n,minscale=minscale,maxscale=maxscale,$
   IF (n_elements(dregfile) EQ 0) THEN dregfile=path+'dd_reg.txt'
   IF (n_elements(rcountfile) EQ 0) THEN rcountfile=path+'RR.txt'
   IF (n_elements(rregfile) EQ 0) THEN rregfile=path+'rr_reg.txt'
+  IF (~keyword_set(poisson) AND n_elements(covfile) EQ 0) THEN covfile=path+'covariance.txt'
 
   ;MAD read in necessary data, convert as necessary
   data=mrdfits(datafile,1)
@@ -86,6 +90,7 @@ PRO fit_jackknives,theta,w_theta,b,n=n,minscale=minscale,maxscale=maxscale,$
   rr=rr*(n_elements(rand)^2.)
   rrreg=read_matrix(rregfile)
 
+  IF ~keyword_set(poisson) THEN C=read_matrix(covfile)
   
   ;MAD Set default scales (full range)
   IF (n_elements(minscale) EQ 0) THEN minscale=min(theta)/60.
@@ -111,11 +116,17 @@ PRO fit_jackknives,theta,w_theta,b,n=n,minscale=minscale,maxscale=maxscale,$
         indx=floor(randomu(seed)*max(pix))
         w[j]=ws[indx]
         ;MAD Get Poisson error for this point
-        err[j]=sqrt((2.*(1+w[j])^2.)/(dd[j]-ddreg[j,indx]))
+        IF (keyword_set(poisson)) THEN BEGIN
+           IF (n_elements(data2) EQ 0) THEN factor=2. ELSE factor=1.
+           err[j]=sqrt((factor*(1+w[j])^2.)/(dd[j]-ddreg[j,indx]))
+        ENDIF
      ENDFOR
      ;MAD Fit random iteration
-     fit_ang_cluster,th,w,err,bias,bias_err,minscale=minscale,maxscale=maxscale,/fitbias,$
-                     dmfile=dmfile,acc=acc,/silent,/nocovar
+     IF (keyword_set(poisson)) THEN $
+        fit_ang_cluster,th,w,err,bias,bias_err,minscale=minscale,maxscale=maxscale,/fitbias,$
+                        dmfile=dmfile,acc=acc,/silent,/nocovar ELSE $
+                           fit_ang_cluster,th,w,err,bias,bias_err,minscale=minscale,maxscale=maxscale,$
+                                           /fitbias,dmfile=dmfile,filepath=path,acc=acc,/silent
      b[i]=bias
      b_err[i]=bias_err
      
