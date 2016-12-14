@@ -28,7 +28,10 @@
 ;
 ;    outfile - string name of output, will have columns of theta,
 ;              w_theta, error
-;   
+;    
+;  KEYWORDS:
+;    f2f - if set, calculates field-to-field variance rather than jackknife
+;
 ;  OUTPUTS:
 ;    errors - the 1-sigma errors (diagonal of covariance matrix)
 ;    jackknife_results.txt - Three columns; bin center (degrees), w_theta,
@@ -45,7 +48,7 @@
 ;              MAD (Dartmouth)
 ;-
 PRO ang_jackknife,data,rand,theta_full,w_theta_full,errors,data2=data2,$
-                  maxscale=maxscale,outfile=outfile,bins=bins
+                  maxscale=maxscale,outfile=outfile,bins=bins,f2f=f2f
 
 IF (n_elements(data) EQ 0) THEN message,'Syntax - ang_jackknife,data,rand,theta_full,w_theta_full,errors[,data2=data2,maxscale=maxscale,outfile=''results_with_errs.txt'',bins=bins]'
 
@@ -119,10 +122,16 @@ dr_tot=dr_tot*n_data_tot*n_rand_tot
 print,'Ang_jackknife - Looping over regions...'
 FOR i=1L,max(rand.reg) DO BEGIN
    counter,i,max(rand.reg)
-   use_data=data[where(data.reg NE i)]
-   use_rand=rand[where(rand.reg NE i)]
-   IF keyword_set(data2) THEN use_data2=data2[where(data2.reg NE i)]
-
+   IF keyword_set(f2f) THEN BEGIN
+      use_data=data[where(data.reg EQ i)]
+      use_rand=rand[where(rand.reg EQ i)]
+      IF keyword_set(data2) THEN use_data2=data2[where(data2.reg EQ i)]
+   ENDIF ELSE BEGIN
+      use_data=data[where(data.reg NE i)]
+      use_rand=rand[where(rand.reg NE i)]
+      IF keyword_set(data2) THEN use_data2=data2[where(data2.reg NE i)]
+   ENDELSE
+   
    ;MAD Get number in each sample in double format
    n_data=double(n_elements(use_data))
    n_rand=double(n_elements(use_rand))
@@ -131,18 +140,21 @@ FOR i=1L,max(rand.reg) DO BEGIN
 
    ;MAD Use info from ang_cluster.pro to do DD/DR/RR quickly 
    rr_use='rr'+strtrim(i,2)
-   cmd='h_rr = rr_tot - '+rr_use
+   IF keyword_set(f2f) THEN cmd = 'h_rr = '+rr_use ELSE $
+      cmd='h_rr = rr_tot - '+rr_use
    R=execute(cmd)
    h_rr=h_rr*(1./(n_rand*n_rand))
    
    dd_use='dd'+strtrim(i,2)
-   cmd='h_dd = dd_tot - '+dd_use
+   IF keyword_set(f2f) THEN cmd='h_dd = '+dd_use ELSE $
+      cmd='h_dd = dd_tot - '+dd_use
    R=execute(cmd)
    IF ~keyword_set(data2) THEN h_dd=h_dd*(1./(n_data*n_data)) ELSE $
       h_dd=h_dd*(1./(n_data*n_data2))
 
    dr_use='dr'+strtrim(i,2)
-   cmd='h_dr = dr_tot - '+dr_use
+   IF keyword_set(f2f) THEN cmd='h_dr = '+dr_use ELSE $
+      cmd='h_dr = dr_tot - '+dr_use
    R=execute(cmd)
    h_dr=h_dr*(1./(n_data*n_rand))
 
@@ -189,12 +201,14 @@ diag=dblarr(n_elements(theta_full))
 FOR k=1,max(pix) DO BEGIN
    string='rr_pix = rr'+strtrim(k,2)
    R=Execute(string)
-   rr_pix=rr_tot-rr_pix
+   IF ~keyword_set(f2f) THEN rr_pix=rr_tot-rr_pix
    w_theta=w_theta_pix[where(pix EQ k)]
    temp1=(SQRT(rr_pix*(1./rr_tot)))*(w_theta-w_theta_full)
    temp2=(SQRT(rr_pix*(1./rr_tot)))*(w_theta-w_theta_full)
    C= C + (temp1 # temp2)
 ENDFOR
+IF keyword_set(f2f) THEN C = (1./(max(pix)-1))*C ELSE $
+   C = ((max(pix)-1)/max(pix)) * C
 
 ;MAD Write out covariance matrix file for fitting
 print,'Ang_jackknife - writing out covariance matrix...'
