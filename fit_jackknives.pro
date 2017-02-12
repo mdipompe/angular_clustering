@@ -69,7 +69,7 @@ PRO fit_jackknives,theta,w_theta,b,n=n,minscale=minscale,maxscale=maxscale,$
   IF (n_elements(seed) EQ 0) THEN seed=818
   IF (n_elements(path) EQ 0) THEN path='./'
   IF (n_elements(datafile) EQ 0) THEN datafile=path+'data_reg.fits'
-  IF (n_elements(randfile) EQ 0) THEN datafile=path+'rand_reg.fits'
+  IF (n_elements(randfile) EQ 0) THEN randfile=path+'rand_reg.fits'
   IF (n_elements(jackfile) EQ 0) THEN jackfile=path+'jackknife_results.txt'
   IF (n_elements(dcountfile) EQ 0) THEN dcountfile=path+'DD_DR.txt'
   IF (n_elements(dregfile) EQ 0) THEN dregfile=path+'dd_reg.txt'
