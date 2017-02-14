@@ -140,7 +140,7 @@ PRO fit_jackknives,theta,w_theta,b,n=n,minscale=minscale,maxscale=maxscale,$
      openw,lun,outfile,/get_lun
      printf,lun,';b       b_err',format='(A)'
      FOR i=0L,n-1 DO $
-        printf,strtrim(b[i],2) + '     ' + strtrim(b_err[i],2),format='(A)'
+        printf,lun,strtrim(b[i],2) + '     ' + strtrim(b_err[i],2),format='(A)'
      free_lun,lun
   ENDIF
   
