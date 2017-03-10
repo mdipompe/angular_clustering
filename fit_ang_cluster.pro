@@ -43,6 +43,10 @@
 ;               Defaults to current directory.
 ;    acc - desired accuracy for bias measurement.  Defaults to nearest
 ;          0.001.  Smaller number = more precision and more run time.
+;    max_b - the maximum of the b parameter space to explore.
+;            Defaults to 5.
+;    min_b - the minimum of the b parameter space to explore. Defaults
+;            to 0.4
 ;
 ;  OUTPUTS:
 ;    bias 
@@ -61,13 +65,17 @@
 ;              MAD (Dartmouth)
 ;    12-6-16 - Added acc keyword to control speed & precision,
 ;              added silent option - MAD (Dartmouth)
-;    12-7-16 - Added nocovar option, speed improvements - MAD (Dartmouth)
+;    12-7-16 - Added nocovar option, speed improvements - MAD
+;              (Dartmouth)
+;     3-9-17 - Added b_max and b_min keywords to allow user-specified 
+;              bias parameter space - MAD (Dartmouth)
 ;-
 PRO fit_ang_cluster,theta,w_theta,e_rrors,bias,biaserr,$
                     minscale=minscale,maxscale=maxscale,$
                     fitplaws=fitplaws,fitbias=fitbias,dmfile=dmfile,$
                     plawplot=plawplot,biasplot=biasplot,filepath=filepath,$
-                    minchi2=minchi2,bz=bz,acc=acc,silent=silent,nocovar=nocovar
+                    minchi2=minchi2,bz=bz,acc=acc,silent=silent,nocovar=nocovar,$
+                    max_b=max_b,min_b=min_b
 
 IF (n_elements(theta) EQ 0) THEN message,'Syntax - fit_ang_cluster,theta,w_theta,errors[,minscale=minscale,maxscale=maxscale,/fitplaws,/fitbias,plawplot=''plawplot.png'',biasplot=''biasplot.png'']'
 
@@ -83,6 +91,10 @@ IF ~keyword_set(filepath) THEN filepath='./'
 
 ;MAD Set default accuracy (sigfigs)
 IF ~keyword_set(acc) THEN acc=0.001
+
+;MAD Set default min/max of b parameter space
+IF ~keyword_set(max_b) THEN max_b=5.
+IF ~keyword_set(min_b) THEN min_b=0.4
 
 ;MAD Define filled circle for plot
 circsym,/fill
@@ -303,7 +315,7 @@ IF keyword_set(fitbias) THEN BEGIN
    dmw=dmw[inscale]
 
    ;MAD Generate array of bias values
-   b_guess=(findgen(5./acc)*(5./(5./acc))+0.4)
+   b_guess=(findgen((max_b-min_b)/acc)*((max_b-min_b)/((max_b-min_b)/acc))+min_b)
    ;MAD Initialize arrays of Chi^2 values to fill
    chisq=dblarr(n_elements(b_guess))
 
