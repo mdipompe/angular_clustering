@@ -21,6 +21,7 @@
 ;  OPTIONAL INPUTS:
 ;    data2 - second data set for cross-correlation, with tags ra,dec,
 ;            and reg.  (Made by split regions.pro)
+;    rand2 - second random catalog for cross-correlations
 ;    maxscale - The maximum angular scale of interest, in degrees.  Should be
 ;               the same as what was used with ang_cluster.pro.  Defaults to 2
 ;    bins - options for binning include 3, 4 or 5 (refers to bins/dex)
@@ -46,8 +47,10 @@
 ;    9-17-15 - Fixed some cross-correlation bugs - MAD (Dartmouth)
 ;     9-5-16 - Generalized to arbitrary number of jackknife pixels -
 ;              MAD (Dartmouth)
+;    3-15-17 - Added support for more general cross-corr, with second
+;              random catalog - MAD (Dartmouth)
 ;-
-PRO ang_jackknife,data,rand,theta_full,w_theta_full,errors,data2=data2,$
+PRO ang_jackknife,data,rand,theta_full,w_theta_full,errors,data2=data2,rand2=rand2,$
                   maxscale=maxscale,outfile=outfile,bins=bins,f2f=f2f
 
 IF (n_elements(data) EQ 0) THEN message,'Syntax - ang_jackknife,data,rand,theta_full,w_theta_full,errors[,data2=data2,maxscale=maxscale,outfile=''results_with_errs.txt'',bins=bins]'
@@ -62,6 +65,7 @@ IF ~keyword_set(maxscale) THEN maxscale=2.
 n_data_tot=double(n_elements(data))
 n_rand_tot=double(n_elements(rand))
 IF keyword_set(data2) THEN n_data2_tot=double(n_elements(data2))
+IF keyword_set(rand2) THEN n_rand2_tot=double(n_elements(rand2))
 
 ;MAD Set binning (5dex is the default), make bin edges, centers
 IF (n_elements(bins) EQ 0) THEN bins=5
@@ -93,7 +97,9 @@ FOR i=0L,n_elements(rr_reg[0,*])-1 DO BEGIN
 ENDFOR
 
 ;MAD Multiply original measurements by total to un-normalize the values
-rr_tot=rr_tot*n_rand_tot*n_rand_tot
+IF ~keyword_set(rand2) THEN $
+   rr_tot=rr_tot*n_rand_tot*n_rand_tot ELSE $
+      rr_tot=rr_tot*n_rand_tot*n_rand2_tot
 
 ;MAD Initialize an array to store the number of random points used in
 ;each iteration, for use in calculating covariance later
@@ -111,12 +117,22 @@ FOR i=0L,n_elements(dr_reg[0,*])-1 DO BEGIN
    cmd='dr'+strtrim(i+1,2)+'=reform(dr_reg[*,i])'
    tmp=execute(cmd)
 ENDFOR
+IF keyword_set(rand2) THEN BEGIN
+   readcol,'DR2.txt',dr2_tot,format='D'
+   dr2_reg=read_matrix('dr2_reg.txt')
+   FOR i=0L,n_elements(dr2_reg[0,*])-1 DO BEGIN
+      cmd='dr_2'+strtrim(i+1,2)+'=reform(dr2_reg[*,i])'
+      tmp=execute(cmd)
+   ENDFOR
+ENDIF
 
 ;MAD Multiply original measurements by total to un-normalize the values
 IF ~keyword_set(data2) THEN dd_tot=dd_tot*n_data_tot*n_data_tot ELSE $
    dd_tot=dd_tot*n_data_tot*n_data2_tot   
-dr_tot=dr_tot*n_data_tot*n_rand_tot
-
+IF ~keyword_set(rand2) THEN dr_tot=dr_tot*n_data_tot*n_rand_tot ELSE $
+   dr_tot=dr_tot*n_data_tot*n_rand2_tot
+IF keyword_set(rand2) THEN $
+   dr2_tot=dr2_tot*n_data2_tot*n_rand_tot
 
 ;MAD Start loop over included regions
 print,'Ang_jackknife - Looping over regions...'
@@ -126,10 +142,12 @@ FOR i=1L,max(rand.reg) DO BEGIN
       use_data=data[where(data.reg EQ i)]
       use_rand=rand[where(rand.reg EQ i)]
       IF keyword_set(data2) THEN use_data2=data2[where(data2.reg EQ i)]
+      IF keyword_set(rand2) THEN use_rand2=rand2[where(rand2.reg EQ i)]
    ENDIF ELSE BEGIN
       use_data=data[where(data.reg NE i)]
       use_rand=rand[where(rand.reg NE i)]
       IF keyword_set(data2) THEN use_data2=data2[where(data2.reg NE i)]
+      IF keyword_set(rand2) THEN use_rand2=rand2[where(rand2.reg NE i)]
    ENDELSE
    
    ;MAD Get number in each sample in double format
@@ -137,13 +155,16 @@ FOR i=1L,max(rand.reg) DO BEGIN
    n_rand=double(n_elements(use_rand))
    n_rand_pix[i-1]=n_rand
    IF keyword_set(data2) THEN n_data2=double(n_elements(use_data2))
+   IF keyword_set(rand2) THEN n_rand2=double(n_elements(use_rand2))
 
    ;MAD Use info from ang_cluster.pro to do DD/DR/RR quickly 
    rr_use='rr'+strtrim(i,2)
    IF keyword_set(f2f) THEN cmd = 'h_rr = '+rr_use ELSE $
       cmd='h_rr = rr_tot - '+rr_use
    R=execute(cmd)
-   h_rr=h_rr*(1./(n_rand*n_rand))
+   IF ~keyword_set(rand2) THEN $
+      h_rr=h_rr*(1./(n_rand*n_rand)) ELSE $
+         h_rr=h_rr*(1./(n_rand*n_rand2)) 
    
    dd_use='dd'+strtrim(i,2)
    IF keyword_set(f2f) THEN cmd='h_dd = '+dd_use ELSE $
@@ -156,10 +177,22 @@ FOR i=1L,max(rand.reg) DO BEGIN
    IF keyword_set(f2f) THEN cmd='h_dr = '+dr_use ELSE $
       cmd='h_dr = dr_tot - '+dr_use
    R=execute(cmd)
-   h_dr=h_dr*(1./(n_data*n_rand))
-
+   IF ~keyword_set(rand2) THEN h_dr=h_dr*(1./(n_data*n_rand)) ELSE $
+      h_dr=h_dr*(1./(n_data*n_rand2))
+   
+   IF keyword_set(rand2) THEN BEGIN
+      dr2_use='dr_2'+strtrim(i,2)
+      IF keyword_set(f2f) THEN cmd='h_dr2 = '+dr2_use ELSE $
+         cmd='h_dr2 = dr2_tot - '+dr2_use
+      R=execute(cmd)
+      h_dr2=h_dr2*(1./(n_data2*n_rand))
+   ENDIF
+   
+   
    ;MAD Calculate autocorrelation
-   w_theta=(1./h_rr)*(h_dd-(2.*h_dr)+h_rr)
+   IF ~keyword_set(rand2) THEN $
+      w_theta=(1./h_rr)*(h_dd-(2.*h_dr)+h_rr) ELSE $
+         w_theta=(1./h_rr)*(h_dd-h_dr-h_dr2+h_rr)
 
    ;If the scale of interest is slightly larger than the maximum edge of
    ;the bins, the last value is nonsense
@@ -194,7 +227,9 @@ FOR i=0L,n_elements(rr_reg[0,*])-1 DO BEGIN
 ENDFOR
 readcol,'RR.txt',rr_tot,format='D',numline=num
 rr_tot_norm=rr_tot
-rr_tot=rr_tot*n_rand_tot*n_rand_tot
+IF ~keyword_set(rand2) THEN $
+   rr_tot=rr_tot*n_rand_tot*n_rand_tot ELSE $
+      rr_tot=rr_tot*n_rand_tot*n_rand2_tot
 
 C=dblarr(n_elements(theta_full),n_elements(theta_full))
 diag=dblarr(n_elements(theta_full))

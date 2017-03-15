@@ -32,6 +32,8 @@
 ;               doing a cross-correlation)
 ;    data2_fileout - name of fits file to write second data set to,
 ;                    with additional region tag
+;    rand2_in - structure or fits filename of second random catalog
+;    rand2_filout - filename to write second random catalog to
 ;    split_file - name of file for location of splits. If already
 ;                 exists, will read in and apply.  If not, will
 ;                 write results to file.  Format is pixel/region,lower
@@ -50,10 +52,14 @@
 ;  HISTORY:
 ;    8-31-16 - Written - MAD (Dartmouth)
 ;    9-13-16 - Added ra and dec split in/out option - MAD (Dartmouth)
+;    3-15-17 - Added support for second random catalog for cross-corr
+;              - MAD (Dartmouth)
 ;-
 PRO split_regions_gen,data_in,rand_in,data_out,rand_out,N=N,frac=frac,$
                       data_fileout=data_fileout,rand_fileout=rand_fileout,$
-                      data2_in=data2_in,data2_fileout=data2_fileout,figures=figures,$
+                      data2_in=data2_in,data2_fileout=data2_fileout,$
+                      rand2_in=rand2_in,rand2_fileout=rand2_fileout,$
+                      figures=figures,$
                       split_file=split_file
 
   ;MAD Set defaults
@@ -65,6 +71,9 @@ PRO split_regions_gen,data_in,rand_in,data_out,rand_out,N=N,frac=frac,$
   IF keyword_set(data2_in) THEN BEGIN
      IF (size(data2_in,/type) EQ 7) THEN data2=mrdfits(data2_in,1) ELSE data2=data2_in
   ENDIF
+  IF keyword_set(rand2_in) THEN BEGIN
+     IF (size(rand2_in,/type) EQ 7) THEN rand2=mrdfits(rand2_in,1) ELSE rand2=rand2_in
+  ENDIF
 
   ;MAD Add region tag
   add={reg:0}
@@ -75,6 +84,10 @@ PRO split_regions_gen,data_in,rand_in,data_out,rand_out,N=N,frac=frac,$
   IF keyword_set(data2_in) THEN BEGIN
      adddata2=replicate(add,n_elements(data2))
      data2_out=struct_addtags(data2,adddata2)
+  ENDIF
+  IF keyword_set(rand2_in) THEN BEGIN
+     addrand2=replicate(add,n_elements(rand2))
+     rand2_out=struct_addtags(rand2,addrand2)
   ENDIF
   
   ;MAD Set total number of regions, number of cuts
@@ -101,6 +114,12 @@ PRO split_regions_gen,data_in,rand_in,data_out,rand_out,N=N,frac=frac,$
                            (data2_out.dec LT dec_cuts_high[i]) AND $
                            (data2_out.ra GE ra_cuts_low[i]) AND $
                            (data2_out.ra LT ra_cuts_high[i]))].reg = pix[i]
+        ENDIF
+        IF keyword_set(rand2_in) THEN BEGIN
+           rand2_out[where((rand2_out.dec GE dec_cuts_low[i]) AND $
+                           (rand2_out.dec LT dec_cuts_high[i]) AND $
+                           (rand2_out.ra GE ra_cuts_low[i]) AND $
+                           (rand2_out.ra LT ra_cuts_high[i]))].reg = pix[i]
         ENDIF   
      ENDFOR
   ENDIF ELSE BEGIN  
@@ -130,7 +149,7 @@ PRO split_regions_gen,data_in,rand_in,data_out,rand_out,N=N,frac=frac,$
      ENDWHILE  
 
      ;MAD Add min and max decs to cuts
-     dec_cuts=[min(rand_out.dec)-0.01,dec_cuts,max(rand_out.dec)+0.01]
+     dec_cuts=[min(rand_out.dec)-0.5,dec_cuts,max(rand_out.dec)+0.5]
      
      ;MAD Apply dec splits
      FOR i=0L,n_elements(dec_cuts)-2 DO BEGIN
@@ -141,6 +160,10 @@ PRO split_regions_gen,data_in,rand_in,data_out,rand_out,N=N,frac=frac,$
         IF keyword_set(data2_in) THEN BEGIN
            xx=where(data2_out.dec GE dec_cuts[i] AND data2_out.dec LT dec_cuts[i+1])
            data2_out[xx].reg=i+1
+        ENDIF
+        IF keyword_set(rand2_in) THEN BEGIN
+           xx=where(rand2_out.dec GE dec_cuts[i] AND rand2_out.dec LT dec_cuts[i+1])
+           rand2_out[xx].reg=i+1
         ENDIF
      ENDFOR
 
@@ -160,6 +183,10 @@ PRO split_regions_gen,data_in,rand_in,data_out,rand_out,N=N,frac=frac,$
         user=where(rand_out.reg EQ i+1)
         userand=rand_out[user]
         ras=userand[bsort(userand.ra)].ra
+        IF keyword_set(rand2_in) THEN BEGIN
+           user2=where(rand2_out.reg EQ i+1)
+           userand2=rand2_out[user2]
+        ENDIF        
         ;MAD Only use subset if frac is set
         IF keyword_set(frac) THEN BEGIN
            indx=randomu(123,n_elements(ras)*frac)*(n_elements(ras)-1)
@@ -180,7 +207,7 @@ PRO split_regions_gen,data_in,rand_in,data_out,rand_out,N=N,frac=frac,$
         ENDWHILE
 
         ;MAD Add min and max RA, write out if needed
-        ra_cuts=[min(userand.ra)-0.01,ra_cuts,max(userand.ra)+0.01]
+        ra_cuts=[min(userand.ra)-0.5,ra_cuts,max(userand.ra)+0.5]
         IF keyword_set(split_file) THEN BEGIN
            FOR j=0L,n_elements(ra_cuts)-2 DO BEGIN
               printf,lun,count,dec_cuts[i],dec_cuts[i+1],ra_cuts[j],ra_cuts[j+1],$
@@ -201,6 +228,10 @@ PRO split_regions_gen,data_in,rand_in,data_out,rand_out,N=N,frac=frac,$
               xx=where(data2_out[used2].ra GE ra_cuts[v] AND data2_out[used2].ra LT ra_cuts[v+1])
               data2_out[used2[xx]].reg=w*(-1)
            ENDIF
+           IF keyword_set(rand2_in) THEN BEGIN
+              xx=where(rand2_out[user2].ra GE ra_cuts[v] AND rand2_out[user2].ra LT ra_cuts[v+1])
+              rand2_out[user2[xx]].reg=w*(-1)
+           ENDIF
            w=w+1
         ENDFOR
        ;MAD Delete the RA cuts so the WHILE loop above works again
@@ -214,12 +245,14 @@ PRO split_regions_gen,data_in,rand_in,data_out,rand_out,N=N,frac=frac,$
      rand_out.reg=rand_out.reg*(-1)
      data_out.reg=data_out.reg*(-1)
      IF keyword_set(data2_in) THEN data2_out.reg=data2_out.reg*(-1)
+     IF keyword_set(rand2_in) THEN rand2_out.reg=rand2_out.reg*(-1)
   ENDELSE
 
   ;MAD Write out files if needed
   IF keyword_set(data_fileout) THEN mwrfits,data_out,data_fileout,/create
   IF keyword_set(rand_fileout) THEN mwrfits,rand_out,rand_fileout,/create
   IF keyword_set(data2_fileout) THEN mwrfits,data2_out,data2_fileout,/create
+  IF keyword_set(rand2_fileout) THEN mwrfits,rand2_out,rand2_fileout,/create
   
   ;MAD Make some plots as checks
   IF keyword_set(figures) THEN BEGIN
@@ -251,6 +284,16 @@ PRO split_regions_gen,data_in,rand_in,data_out,rand_out,N=N,frac=frac,$
         FOR i=0L,n_elements(indices)-1 DO BEGIN
            xx=where(data2_out.reg EQ indices[i])
            oplot,data2_out[xx].ra,data2_out[xx].dec,psym=3,color=randomu(colseed)*!D.TABLE_SIZE
+        ENDFOR
+        PS_end,/png
+     ENDIF
+     IF keyword_set(rand2_in) THEN BEGIN
+        PS_start,filename='rand2_regions.png'
+        plot,rand2_out.ra,rand2_out.dec,xtit='RA',ytit='Dec',psym=3
+        loadct,2
+        FOR i=0L,n_elements(indices)-1 DO BEGIN
+           xx=where(rand2_out.reg EQ indices[i])
+           oplot,rand2_out[xx].ra,rand2_out[xx].dec,psym=3,color=randomu(colseed)*!D.TABLE_SIZE
         ENDFOR
         PS_end,/png
      ENDIF
