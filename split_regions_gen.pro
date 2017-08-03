@@ -37,7 +37,10 @@
 ;    split_file - name of file for location of splits. If already
 ;                 exists, will read in and apply.  If not, will
 ;                 write results to file.  Format is pixel/region,lower
-;                 dec limit, upper dec limit, lower ra limit, upper ra limit.
+;                 dec limit, upper dec limit, lower ra limit, upper ra
+;                 limit.
+;    nocount - set to turn off counters (these don't work well
+;              if wrapping into e.g. Python code)
 ;
 ;
 ;  KEYWORDS:
@@ -54,6 +57,9 @@
 ;    9-13-16 - Added ra and dec split in/out option - MAD (Dartmouth)
 ;    3-15-17 - Added support for second random catalog for cross-corr
 ;              - MAD (Dartmouth)
+;     8-3-17 - Added nocount keyword to help with wrapping into
+;              Python codes, and limited plotting to random 1M points
+;              for large catalogs - MAD (Dartmouth)
 ;-
 PRO split_regions_gen,data_in,rand_in,data_out,rand_out,N=N,frac=frac,$
                       data_fileout=data_fileout,rand_fileout=rand_fileout,$
@@ -138,7 +144,7 @@ PRO split_regions_gen,data_in,rand_in,data_out,rand_out,N=N,frac=frac,$
      j=0
      i=0L
      WHILE (n_elements(dec_cuts) LT n_dec_cuts) DO BEGIN
-        counter,i,n_elements(decs)
+        IF ~keyword_set(nocount) THEN counter,i,n_elements(decs)
         tmp=n_elements(where(decs LT decs[i]))*1./n_elements(decs)
         IF (tmp GE ((j+1.)*(ntot/n))/ntot) THEN BEGIN
            IF (n_elements(dec_cuts) EQ 0) THEN dec_cuts=decs[i] ELSE $
@@ -173,7 +179,7 @@ PRO split_regions_gen,data_in,rand_in,data_out,rand_out,N=N,frac=frac,$
      count=1.
      print,'SPLIT_REGIONS - finding splits in RA, for each DEC strip...'
      FOR i=0L,n-1 DO BEGIN
-        counter,i,n
+        IF ~keyword_set(nocount) THEN counter,i,n
         used=where(data_out.reg EQ i+1)
         usedata=data_out[used]
         IF keyword_set(data2_in) THEN BEGIN
@@ -259,41 +265,57 @@ PRO split_regions_gen,data_in,rand_in,data_out,rand_out,N=N,frac=frac,$
      colseed=123
      indices=rand_out.reg
      indices=indices[rem_dup(indices)]
+     ;MAD If random catalog is big, only plot 1M of 
+     ;MAD them to save time/space
+     IF (n_elements(rand_out) GT 1000000) THEN use=rand_indices(n_elements(rand_out),1000000) ELSE $
+        use=lindgen(n_elements(rand_out)-1)
      PS_start,filename='rand_regions.png'
-     plot,rand_out.ra,rand_out.dec,xtit='RA',ytit='Dec',psym=3
+     plot,rand_out[use].ra,rand_out[use].dec,xtit='RA',ytit='Dec',psym=3
      loadct,2
      FOR i=0L,n_elements(indices)-1 DO BEGIN
-        xx=where(rand_out.reg EQ indices[i])
-        oplot,rand_out[xx].ra,rand_out[xx].dec,psym=3,color=randomu(colseed)*!D.TABLE_SIZE
+        xx=where(rand_out[use].reg EQ indices[i])
+        oplot,rand_out[use[xx]].ra,rand_out[use[xx]].dec,psym=3,color=randomu(colseed)*!D.TABLE_SIZE
      ENDFOR
      PS_end,/png
 
      PS_start,filename='data_regions.png'
-     plot,data_out.ra,data_out.dec,xtit='RA',ytit='Dec',psym=3
+     ;MAD If data catalog is big, only plot 1M of 
+     ;MAD them to save time/space
+     IF (n_elements(data_out) GT 1000000) THEN use=rand_indices(n_elements(data_out),1000000) ELSE $
+        use=lindgen(n_elements(data_out)-1)
+     plot,data_out[use].ra,data_out[use].dec,xtit='RA',ytit='Dec',psym=3
      loadct,2
      FOR i=0L,n_elements(indices)-1 DO BEGIN
-        xx=where(data_out.reg EQ indices[i])
-        oplot,data_out[xx].ra,data_out[xx].dec,psym=3,color=randomu(colseed)*!D.TABLE_SIZE
+        xx=where(data_out[use].reg EQ indices[i])
+        oplot,data_out[use[xx]].ra,data_out[use[xx]].dec,psym=3,color=randomu(colseed)*!D.TABLE_SIZE
      ENDFOR
      PS_end,/png
 
      IF keyword_set(data2) THEN BEGIN
         PS_start,filename='data2_regions.png'
-        plot,data2_out.ra,data2_out.dec,xtit='RA',ytit='Dec',psym=3
+        ;MAD If data catalog is big, only plot 1M of 
+        ;MAD them to save time/space
+        IF (n_elements(data2_out) GT 1000000) THEN use=rand_indices(n_elements(data2_out),1000000) ELSE $
+           use=lindgen(n_elements(data2_out)-1)
+        plot,data2_out[use].ra,data2_out[use].dec,xtit='RA',ytit='Dec',psym=3
         loadct,2
         FOR i=0L,n_elements(indices)-1 DO BEGIN
-           xx=where(data2_out.reg EQ indices[i])
-           oplot,data2_out[xx].ra,data2_out[xx].dec,psym=3,color=randomu(colseed)*!D.TABLE_SIZE
+           xx=where(data2_out[use].reg EQ indices[i])
+           oplot,data2_out[use[xx]].ra,data2_out[use[xx]].dec,psym=3,color=randomu(colseed)*!D.TABLE_SIZE
         ENDFOR
         PS_end,/png
      ENDIF
      IF keyword_set(rand2_in) THEN BEGIN
         PS_start,filename='rand2_regions.png'
-        plot,rand2_out.ra,rand2_out.dec,xtit='RA',ytit='Dec',psym=3
+        ;MAD If data catalog is big, only plot 1M of 
+        ;MAD them to save time/space
+        IF (n_elements(rand2_out) GT 1000000) THEN use=rand_indices(n_elements(rand2_out),1000000) ELSE $
+           use=lindgen(n_elements(rand2_out)-1)
+        plot,rand2_out[use].ra,rand2_out[use].dec,xtit='RA',ytit='Dec',psym=3
         loadct,2
         FOR i=0L,n_elements(indices)-1 DO BEGIN
-           xx=where(rand2_out.reg EQ indices[i])
-           oplot,rand2_out[xx].ra,rand2_out[xx].dec,psym=3,color=randomu(colseed)*!D.TABLE_SIZE
+           xx=where(rand2_out[use].reg EQ indices[i])
+           oplot,rand2_out[use[xx]].ra,rand2_out[use[xx]].dec,psym=3,color=randomu(colseed)*!D.TABLE_SIZE
         ENDFOR
         PS_end,/png
      ENDIF
