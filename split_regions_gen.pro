@@ -39,7 +39,7 @@
 ;                 write results to file.  Format is pixel/region,lower
 ;                 dec limit, upper dec limit, lower ra limit, upper ra
 ;                 limit.
-;    nocount - set to turn off counters (these don't work well
+;    countoff - set to turn off counters (these don't work well
 ;              if wrapping into e.g. Python code)
 ;
 ;
@@ -57,7 +57,7 @@
 ;    9-13-16 - Added ra and dec split in/out option - MAD (Dartmouth)
 ;    3-15-17 - Added support for second random catalog for cross-corr
 ;              - MAD (Dartmouth)
-;     8-3-17 - Added nocount keyword to help with wrapping into
+;     8-3-17 - Added countoff keyword to help with wrapping into
 ;              Python codes, and limited plotting to random 1M points
 ;              for large catalogs - MAD (Dartmouth)
 ;-
@@ -66,7 +66,7 @@ PRO split_regions_gen,data_in,rand_in,data_out,rand_out,N=N,frac=frac,$
                       data2_in=data2_in,data2_fileout=data2_fileout,$
                       rand2_in=rand2_in,rand2_fileout=rand2_fileout,$
                       figures=figures,$
-                      split_file=split_file
+                      split_file=split_file,countoff=countoff
 
   ;MAD Set defaults
   IF ~keyword_set(N) THEN N=4
@@ -144,7 +144,7 @@ PRO split_regions_gen,data_in,rand_in,data_out,rand_out,N=N,frac=frac,$
      j=0
      i=0L
      WHILE (n_elements(dec_cuts) LT n_dec_cuts) DO BEGIN
-        IF ~keyword_set(nocount) THEN counter,i,n_elements(decs)
+        IF ~keyword_set(countoff) THEN counter,i,n_elements(decs)
         tmp=n_elements(where(decs LT decs[i]))*1./n_elements(decs)
         IF (tmp GE ((j+1.)*(ntot/n))/ntot) THEN BEGIN
            IF (n_elements(dec_cuts) EQ 0) THEN dec_cuts=decs[i] ELSE $
@@ -179,7 +179,7 @@ PRO split_regions_gen,data_in,rand_in,data_out,rand_out,N=N,frac=frac,$
      count=1.
      print,'SPLIT_REGIONS - finding splits in RA, for each DEC strip...'
      FOR i=0L,n-1 DO BEGIN
-        IF ~keyword_set(nocount) THEN counter,i,n
+        IF ~keyword_set(countoff) THEN counter,i,n
         used=where(data_out.reg EQ i+1)
         usedata=data_out[used]
         IF keyword_set(data2_in) THEN BEGIN
